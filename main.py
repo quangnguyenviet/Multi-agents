@@ -11,6 +11,8 @@ load_dotenv()
 from skills.registry import SkillRegistry
 from skills.factory import SkillFactory
 from skills.builtin.salary_skills import all_salary_skills
+from skills.builtin.hr_skills import all_hr_skills
+from skills.builtin.admin_skills import all_admin_skills
 from agents.base_agent import BaseAgent
 from skills.loader import SkillLoader
 from config.settings import settings
@@ -40,15 +42,31 @@ skill_factory = SkillFactory()
 # Đăng ký built-in skills
 for skill in all_salary_skills:
     skill_registry.register(skill, ["salary_management"])
+for skill in all_hr_skills:
+    skill_registry.register(skill, ["hr_policies"])
+for skill in all_admin_skills:
+    skill_registry.register(skill, ["system_admin"])
 
 # Tạo các agent với skill support
+hr_agent_with_skills = BaseAgent(
+    name="HR Policies Agent",
+    agent_id="hr_policies",
+    skill_registry=skill_registry
+)
 salary_agent_with_skills = BaseAgent(
     name="Salary Management Agent",
     agent_id="salary_management",
     skill_registry=skill_registry
 )
+system_admin_agent_with_skills = BaseAgent(
+    name="System Admin Agent",
+    agent_id="system_admin",
+    skill_registry=skill_registry
+)
 
 # Bật các skills mặc định
+hr_agent_with_skills.enable_skill("hr_policy_query")
+system_admin_agent_with_skills.enable_skill("server_metrics")
 salary_agent_with_skills.enable_skill("self_salary")
 salary_agent_with_skills.enable_skill("bonus_calculator")
 salary_agent_with_skills.enable_skill("salary_report")
@@ -58,10 +76,14 @@ SkillLoader.load_custom_skills(skill_registry)
 
 # Bật tất cả custom skills đã nạp lên cho agent tương ứng
 for skill in skill_registry.list_all():
-    if skill.id not in ["self_salary", "bonus_calculator", "salary_report"]:
+    if skill.id not in ["self_salary", "bonus_calculator", "salary_report", "hr_policy_query", "server_metrics"]:
         agent_id = skill.metadata.get("agent_id", "salary_management")
         if agent_id == "salary_management":
             salary_agent_with_skills.enable_skill(skill.id)
+        elif agent_id == "hr_policies":
+            hr_agent_with_skills.enable_skill(skill.id)
+        elif agent_id == "system_admin":
+            system_admin_agent_with_skills.enable_skill(skill.id)
 
 # === STATE ===
 class MultiAgentState(TypedDict):
@@ -139,8 +161,10 @@ def router_node(state: MultiAgentState) -> MultiAgentState:
     return state
 
 # === NODE AGENT 1: QUY CHẾ & PHÚC LỢI (HR Agent) ===
-def hr_policies_node(state: MultiAgentState) -> MultiAgentState:
+async def hr_policies_node(state: MultiAgentState) -> MultiAgentState:
     query = state["query"]
+    user_role = state["user_role"]
+    user_name = state["user_name"]
     
     hr_documents = (
         "QUY CHẾ NỘI BỘ VÀ CHẾ ĐỘ PHÚC LỢI CÔNG TY:\n"
@@ -151,26 +175,14 @@ def hr_policies_node(state: MultiAgentState) -> MultiAgentState:
         "5. Quy định trang phục: Trang phục lịch sự công sở vào thứ Hai đến thứ Năm. Thứ Sáu được phép mặc trang phục tự do."
     )
     
-    llm = ChatOpenAI(
-        model=settings.LLM_MODEL,
-        api_key=settings.GROQ_API_KEY,
-        base_url=settings.LLM_BASE_URL,
-        temperature=0.2
-    )
+    context = {
+        "hr_documents": hr_documents,
+        "user_name": user_name,
+        "user_role": user_role
+    }
     
-    messages = [
-        SystemMessage(content=(
-            "Bạn là HR Agent chuyên trách giải đáp thắc mắc nội quy, quy chế nhân sự của công ty.\n"
-            "Dưới đây là thông tin tài liệu chính thức:\n"
-            f"=== TÀI LIỆU HR ===\n{hr_documents}\n==================\n"
-            "Hãy trả lời câu hỏi dựa trên tài liệu trên một cách thân thiện, chính xác. "
-            "Nếu thông tin không có trong tài liệu, hãy nhẹ nhàng báo rằng thông tin này chưa được cập nhật."
-        )),
-        HumanMessage(content=query)
-    ]
-    
-    response = llm.invoke(messages)
-    state["agent_response"] = response.content
+    response = await hr_agent_with_skills.process(query, user_role, context)
+    state["agent_response"] = response
     return state
 
 # === NODE AGENT 2: QUẢN LÝ LƯƠNG (Salary Agent sử dụng skill system) ===
@@ -195,8 +207,10 @@ async def salary_management_node(state: MultiAgentState) -> MultiAgentState:
     return state
 
 # === NODE AGENT 3: QUẢN TRỊ HỆ THỐNG (System Admin Agent) ===
-def system_admin_node(state: MultiAgentState) -> MultiAgentState:
+async def system_admin_node(state: MultiAgentState) -> MultiAgentState:
     query = state["query"]
+    user_role = state["user_role"]
+    user_name = state["user_name"]
     
     server_metrics = (
         "TRẠNG THÁI HẠ TẦNG KỸ THUẬT HỆ THỐNG:\n"
@@ -215,26 +229,14 @@ def system_admin_node(state: MultiAgentState) -> MultiAgentState:
         "  + [2026-05-27 12:30:00] INFO: Daily database backup completed successfully (Size: 14.2 GB)."
     )
     
-    llm = ChatOpenAI(
-        model=settings.LLM_MODEL,
-        api_key=settings.GROQ_API_KEY,
-        base_url=settings.LLM_BASE_URL,
-        temperature=0.1
-    )
+    context = {
+        "server_metrics": server_metrics,
+        "user_name": user_name,
+        "user_role": user_role
+    }
     
-    messages = [
-        SystemMessage(content=(
-            "Bạn là System Admin Agent chuyên trách theo dõi hạ tầng hệ thống của công ty.\n"
-            "Dưới đây là thông số thời gian thực thu thập được từ máy chủ chính:\n"
-            f"=== THÔNG SỐ HỆ THỐNG ===\n{server_metrics}\n=========================\n"
-            "Hãy tổng hợp và giải đáp thắc mắc cho kỹ sư/quản trị viên một cách chuyên nghiệp, chính xác. "
-            "Sử dụng bảng biểu và highlight nếu cần để báo cáo trực quan."
-        )),
-        HumanMessage(content=query)
-    ]
-    
-    response = llm.invoke(messages)
-    state["agent_response"] = response.content
+    response = await system_admin_agent_with_skills.process(query, user_role, context)
+    state["agent_response"] = response
     return state
 
 # === NODE PHỤ: XỬ LÝ CHÀO HỎI & CÂU HỎI CHUNG (General Handler) ===
@@ -362,8 +364,9 @@ async def run_interactive():
     print("-" * 65)
     print("Bắt đầu đặt câu hỏi cho hệ thống đa Agent.")
     print("Chức năng đặc biệt:")
-    print("  - Gõ /skills để liệt kê kỹ năng khả dụng.")
-    print("  - Gõ /create_skill [mô tả] để tự động tạo kỹ năng mới.")
+    print("  - Gõ /agents để xem danh sách Agent và phân quyền truy cập.")
+    print("  - Gõ /skills [agent_id] để liệt kê các kỹ năng của Agent cụ thể.")
+    print("  - Gõ /create_skill [agent_id] [mô tả] để tạo kỹ năng mới (Chỉ ADMIN).")
     print("  - Gõ 'exit' hoặc 'quit' để kết thúc.")
     print("-" * 65)
     
@@ -376,31 +379,133 @@ async def run_interactive():
                 print("\n👋 Đã thoát phiên làm việc. Tạm biệt!")
                 break
                 
-            if query.lower() == "/skills":
-                skills = salary_agent_with_skills.get_available_skills(role)
-                print("\n📚 SKILLS KHẢ DỤNG:")
+            if query.lower() == "/agents":
+                agents_info = {
+                    "hr_policies": {
+                        "name": "HR Policies Agent",
+                        "description": "Giải đáp quy định, quy chế công ty, chế độ phép năm, bảo hiểm.",
+                        "allowed_roles": ["employee", "accountant", "admin"]
+                    },
+                    "salary_management": {
+                        "name": "Salary Management Agent",
+                        "description": "Quản lý và tra cứu thông tin bảng lương, tính thưởng và báo cáo lương.",
+                        "allowed_roles": ["employee", "accountant", "admin"]
+                    },
+                    "system_admin": {
+                        "name": "System Admin Agent",
+                        "description": "Theo dõi và giám sát hiệu năng máy chủ, CPU, RAM và log hệ thống.",
+                        "allowed_roles": ["admin"]
+                    }
+                }
+                print("\n🤖 DANH SÁCH AGENTS TRONG HỆ THỐNG:")
+                for aid, ainfo in agents_info.items():
+                    is_accessible = role in ainfo["allowed_roles"]
+                    status = "✅ Được phép truy cập" if is_accessible else "❌ Bị khóa (Không có quyền)"
+                    print(f"  🔹 {ainfo['name']} (`{aid}`):")
+                    print(f"      Mô tả: {ainfo['description']}")
+                    print(f"      Quyền truy cập của bạn: {status}")
+                continue
+                
+            if query.lower().startswith("/skills"):
+                args = query.replace("/skills", "").strip()
+                if not args:
+                    print("\n💡 Hướng dẫn sử dụng: Gõ `/skills [agent_id]` để liệt kê kỹ năng của Agent đó.")
+                    print("Các Agent khả dụng của bạn:")
+                    available_agents = []
+                    if role in ["employee", "accountant", "admin"]:
+                        available_agents.append("  - `hr_policies` (HR Agent)")
+                        available_agents.append("  - `salary_management` (Salary Agent)")
+                    if role == "admin":
+                        available_agents.append("  - `system_admin` (System Admin Agent)")
+                    for aa in available_agents:
+                        print(aa)
+                    continue
+                
+                target_agent_id = args.lower()
+                
+                # Phân quyền
+                role_permissions = {
+                    "employee": ["hr_policies", "salary_management"],
+                    "accountant": ["hr_policies", "salary_management"],
+                    "admin": ["hr_policies", "salary_management", "system_admin"]
+                }
+                
+                allowed = role_permissions.get(role, [])
+                if target_agent_id not in ["hr_policies", "salary_management", "system_admin"]:
+                    print(f"❌ Agent ID `{target_agent_id}` không tồn tại.")
+                    continue
+                    
+                if target_agent_id not in allowed:
+                    print(f"❌ Bạn không có quyền xem kỹ năng của Agent `{target_agent_id}`.")
+                    continue
+                
+                # Lấy danh sách skill của agent tương ứng
+                if target_agent_id == "hr_policies":
+                    skills = hr_agent_with_skills.get_available_skills(role)
+                    agent_name = "HR Policies Agent"
+                elif target_agent_id == "salary_management":
+                    skills = salary_agent_with_skills.get_available_skills(role)
+                    agent_name = "Salary Management Agent"
+                else:
+                    skills = system_admin_agent_with_skills.get_available_skills(role)
+                    agent_name = "System Admin Agent"
+                
+                print(f"\n📚 SKILLS KHẢ DỤNG CỦA [{agent_name.upper()}]:")
                 if not skills:
-                    print("  (Không có skill khả dụng cho vai trò này)")
+                    print("  (Không có skill khả dụng hoặc bạn không có quyền)")
                 for s in skills:
                     print(f"  - {s.name}: {s.description}")
                 continue
                 
             if query.lower().startswith("/create_skill"):
-                description = query.replace("/create_skill", "").strip()
-                if not description:
-                    print("❌ Vui lòng nhập mô tả skill. Ví dụ: /create_skill Tính thưởng theo thâm niên")
+                # 1. Kiểm tra quyền Admin
+                if role != "admin":
+                    print("❌ Quyền truy cập bị từ chối! Chỉ tài khoản vai trò quản trị viên (ADMIN) mới có quyền tạo kỹ năng mới.")
+                    continue
+                
+                content = query.replace("/create_skill", "").strip()
+                if not content:
+                    print("\n❌ Cú pháp sai! Vui lòng sử dụng cú pháp: `/create_skill [agent_id] [mô tả]`")
+                    print("Ví dụ: `/create_skill salary_management Tính thưởng Tết theo thâm niên`")
+                    print("Các Agent ID khả dụng: `hr_policies`, `salary_management`, `system_admin`")
+                    continue
+                
+                # 2. Tách từ đầu tiên làm agent_id, phần còn lại là mô tả
+                parts = content.split(" ", 1)
+                target_agent_id = parts[0].strip().lower()
+                
+                valid_agents = ["hr_policies", "salary_management", "system_admin"]
+                if target_agent_id not in valid_agents:
+                    print(f"\n❌ Lỗi: Agent ID `{target_agent_id}` không hợp lệ!")
+                    print("Vui lòng nhập đúng Agent ID làm từ đầu tiên. Ví dụ: `/create_skill salary_management Tính thưởng`")
+                    print("Các Agent ID hợp lệ: `hr_policies`, `salary_management`, `system_admin`")
                     continue
                     
-                print("⏳ Đang tạo skill từ mô tả của bạn...")
+                if len(parts) < 2 or not parts[1].strip():
+                    print("❌ Lỗi: Vui lòng cung cấp mô tả chi tiết của kỹ năng. Ví dụ: `/create_skill salary_management Tính thưởng Tết`")
+                    continue
+                
+                description = parts[1].strip()
+                
+                print(f"⏳ Đang sử dụng AI để thiết kế Skill và gán cho Agent `{target_agent_id}`...")
                 new_skill = await skill_factory.create_from_description(
                     user_description=description,
-                    agent_id="salary_management",
+                    agent_id=target_agent_id,
                     created_by=name
                 )
-                skill_registry.register(new_skill, ["salary_management"])
-                salary_agent_with_skills.enable_skill(new_skill.id)
                 
-                # Lưu skill vào ổ đĩa để duy trì khi khởi động lại (persistence)
+                # 3. Đăng ký vào Registry cho agent tương ứng
+                skill_registry.register(new_skill, [target_agent_id])
+                
+                # 4. Kích hoạt trực tiếp lên agent tương ứng
+                if target_agent_id == "hr_policies":
+                    hr_agent_with_skills.enable_skill(new_skill.id)
+                elif target_agent_id == "salary_management":
+                    salary_agent_with_skills.enable_skill(new_skill.id)
+                elif target_agent_id == "system_admin":
+                    system_admin_agent_with_skills.enable_skill(new_skill.id)
+                
+                # 5. Lưu skill vào ổ đĩa để duy trì (persistence)
                 try:
                     skill_file = os.path.join(settings.SKILLS_DIR, f"{new_skill.id}.json")
                     os.makedirs(os.path.dirname(skill_file), exist_ok=True)
@@ -410,7 +515,7 @@ async def run_interactive():
                 except Exception as e:
                     print(f"⚠️ Lỗi không thể lưu skill vào ổ đĩa: {e}")
                     
-                print(f"✅ Đã tạo và kích hoạt skill: {new_skill.name}")
+                print(f"✅ Đã tạo, lưu trữ và kích hoạt skill: {new_skill.name} cho Agent: {target_agent_id}")
                 continue
             
             # Xử lý query bình thường
