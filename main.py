@@ -1,25 +1,20 @@
+# main.py - Phiên bản nâng cấp với Skill System
 import os
-from typing import TypedDict, Literal, Any
+import asyncio
+from typing import TypedDict, Literal
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 
 load_dotenv()
-
-
-# === 1. ĐỊNH NGHĨA STATE (Trạng thái duy trì xuyên suốt đồ thị đa Agent) ===
-class MultiAgentState(TypedDict):
-    user_id: str
-    user_role: Literal["employee", "accountant", "admin"]
-    user_name: str
-    query: str
-    target_agent: Literal["hr_policies", "salary_management", "system_admin", "unknown"]
-    access_granted: bool
-    agent_response: str
-
-
-# === 2. GIẢ LẬP CƠ SỞ DỮ LIỆU BẢO MẬT ===
+from skills.registry import SkillRegistry
+from skills.factory import SkillFactory
+from skills.builtin.salary_skills import all_salary_skills
+from agents.base_agent import BaseAgent
+from skills.loader import SkillLoader
+from config.settings import settings
+# === DỮ LIỆU GIẢ LẬP ===
 SALARY_DB = {
     "Nguyen Van A": {"salary": 15000000, "role": "employee"},
     "Tran Thi B": {"salary": 18000000, "role": "employee"},
@@ -34,27 +29,60 @@ EMPLOYEE_INFO = {
     "adm_001": {"name": "Nguyen Admin", "role": "admin"}
 }
 
-
-# === 3. HÀM LẤY THÔNG TIN USER ===
+# === HÀM LẤY THÔNG TIN USER ===
 def get_user_info(user_id: str) -> dict:
     return EMPLOYEE_INFO.get(user_id, {"name": "Unknown", "role": "employee"})
 
+# === KHỞI TẠO SKILL SYSTEM ===
+skill_registry = SkillRegistry()
+skill_factory = SkillFactory()
 
-# === 4. NODE ĐỊNH TUYẾN & KIỂM SOÁT TRUY CẬP (Router & RBAC Node) ===
+# Đăng ký built-in skills
+for skill in all_salary_skills:
+    skill_registry.register(skill, ["salary_management"])
+
+# Tạo các agent với skill support
+salary_agent_with_skills = BaseAgent(
+    name="Salary Management Agent",
+    agent_id="salary_management",
+    skill_registry=skill_registry
+)
+
+# Bật các skills mặc định
+salary_agent_with_skills.enable_skill("self_salary")
+salary_agent_with_skills.enable_skill("bonus_calculator")
+salary_agent_with_skills.enable_skill("salary_report")
+
+# Tự động nạp custom skills từ ổ đĩa
+SkillLoader.load_custom_skills(skill_registry)
+
+# Bật tất cả custom skills đã nạp lên cho agent tương ứng
+for skill in skill_registry.list_all():
+    if skill.id not in ["self_salary", "bonus_calculator", "salary_report"]:
+        agent_id = skill.metadata.get("agent_id", "salary_management")
+        if agent_id == "salary_management":
+            salary_agent_with_skills.enable_skill(skill.id)
+
+# === STATE ===
+class MultiAgentState(TypedDict):
+    user_id: str
+    user_role: Literal["employee", "accountant", "admin"]
+    user_name: str
+    query: str
+    target_agent: Literal["hr_policies", "salary_management", "system_admin", "unknown"]
+    access_granted: bool
+    agent_response: str
+
+# === NODE ĐỊNH TUYẾN & KIỂM SOÁT TRUY CẬP (Router & RBAC Node) ===
 def router_node(state: MultiAgentState) -> MultiAgentState:
-    """
-    Node đầu tiên: Sử dụng LLM phân tích ý định câu hỏi để định tuyến tới Agent phù hợp
-    và kiểm tra quyền truy cập dựa trên vai trò (Router-Level Security).
-    """
     query = state["query"]
     user_role = state["user_role"]
     user_name = state["user_name"]
     
-    # Khởi tạo mô hình định tuyến
     llm = ChatOpenAI(
-        model="llama-3.3-70b-versatile",
-        api_key=os.getenv("GROQ_API_KEY"),
-        base_url="https://api.groq.com/openai/v1",
+        model=settings.LLM_MODEL,
+        api_key=settings.GROQ_API_KEY,
+        base_url=settings.LLM_BASE_URL,
         temperature=0
     )
     
@@ -73,12 +101,11 @@ def router_node(state: MultiAgentState) -> MultiAgentState:
         HumanMessage(content=f"Phân loại câu hỏi sau: '{query}'")
     ]
     
-    # Gọi LLM để định tuyến
     try:
         response = llm.invoke(messages)
         target_agent = response.content.strip().lower().replace("'", "").replace('"', '')
     except Exception as e:
-        print(f"⚠️ Lỗi gọi LLM phân loại định tuyến: {e}. Sử dụng mặc định 'unknown'")
+        print(f"⚠️ Lỗi định tuyến: {e}. Dùng mặc định 'unknown'")
         target_agent = "unknown"
         
     if target_agent not in ["hr_policies", "salary_management", "system_admin", "unknown"]:
@@ -86,10 +113,7 @@ def router_node(state: MultiAgentState) -> MultiAgentState:
         
     state["target_agent"] = target_agent
     
-    # === BẢN ĐỒ PHÂN QUYỀN TRUY CẬP (ROUTER-LEVEL RBAC) ===
-    # employee: được vào HR Policies và Salary Management (sẽ được kiểm soát chi tiết tiếp ở Agent-Level)
-    # accountant: được vào HR Policies và Salary Management
-    # admin: được vào tất cả mọi Agent bao gồm cả System Admin
+    # Bản đồ quyền hạn
     role_permissions = {
         "employee": ["hr_policies", "salary_management"],
         "accountant": ["hr_policies", "salary_management"],
@@ -98,14 +122,12 @@ def router_node(state: MultiAgentState) -> MultiAgentState:
     
     allowed_agents = role_permissions.get(user_role, ["hr_policies"])
     
-    # Định tuyến mặc định/chào hỏi không cần check quyền đặc biệt
     if target_agent == "unknown":
         state["access_granted"] = True
     elif target_agent in allowed_agents:
         state["access_granted"] = True
         print(f"✅ [ROUTER] {user_role.upper()} {user_name} được chuyển tiếp đến Agent: {target_agent}")
     else:
-        # Bị chặn ngay từ tầng Router
         state["access_granted"] = False
         print(f"❌ [ROUTER] {user_role.upper()} {user_name} BỊ CHẶN truy cập vào Agent: {target_agent}")
         state["agent_response"] = (
@@ -116,16 +138,10 @@ def router_node(state: MultiAgentState) -> MultiAgentState:
         
     return state
 
-
-# === 5. NODE AGENT 1: QUY CHẾ & PHÚC LỢI (HR Agent) ===
+# === NODE AGENT 1: QUY CHẾ & PHÚC LỢI (HR Agent) ===
 def hr_policies_node(state: MultiAgentState) -> MultiAgentState:
-    """
-    Agent chuyên trách trả lời chính sách, nội quy công ty.
-    Tất cả mọi vai trò (Employee, Accountant, Admin) đều có quyền xem.
-    """
     query = state["query"]
     
-    # Mock tài liệu HR quy chế của công ty
     hr_documents = (
         "QUY CHẾ NỘI BỘ VÀ CHẾ ĐỘ PHÚC LỢI CÔNG TY:\n"
         "1. Thời gian làm việc: Từ 8:00 đến 17:30 hằng ngày, từ thứ Hai đến thứ Sáu. Nghỉ trưa từ 12:00 đến 13:30.\n"
@@ -136,9 +152,9 @@ def hr_policies_node(state: MultiAgentState) -> MultiAgentState:
     )
     
     llm = ChatOpenAI(
-        model="llama-3.3-70b-versatile",
-        api_key=os.getenv("GROQ_API_KEY"),
-        base_url="https://api.groq.com/openai/v1",
+        model=settings.LLM_MODEL,
+        api_key=settings.GROQ_API_KEY,
+        base_url=settings.LLM_BASE_URL,
         temperature=0.2
     )
     
@@ -157,97 +173,31 @@ def hr_policies_node(state: MultiAgentState) -> MultiAgentState:
     state["agent_response"] = response.content
     return state
 
-
-# === 6. NODE AGENT 2: QUẢN LÝ LƯƠNG (Salary Agent - Tích hợp Bảo mật tầng sâu) ===
-def salary_management_node(state: MultiAgentState) -> MultiAgentState:
-    """
-    Agent quản lý tiền lương.
-    Tích hợp bảo mật tầng sâu (Agent-Level Security):
-    - Employee: Chỉ được xem lương của CHÍNH MÌNH. Nếu hỏi lương người khác sẽ bị từ chối.
-    - Accountant & Admin: Được quyền xem lương của tất cả nhân viên.
-    """
+# === NODE AGENT 2: QUẢN LÝ LƯƠNG (Salary Agent sử dụng skill system) ===
+async def salary_management_node(state: MultiAgentState) -> MultiAgentState:
     query = state["query"]
     user_role = state["user_role"]
     user_name = state["user_name"]
-    query_lower = query.lower()
     
-    # 1. Phát hiện mục đích truy vấn
-    asking_all = any(k in query_lower for k in ["tất cả", "mọi người", "toàn bộ", "danh sách", "ai"])
-    asking_others = False
-    
-    # Kiểm tra xem có đang hỏi tên của một người khác trong DB không
-    target_person = None
-    for name in SALARY_DB.keys():
-        if name.lower() != user_name.lower() and name.lower() in query_lower:
-            asking_others = True
-            target_person = name
-            break
-
-    # 2. Áp dụng logic bảo mật Agent-Level (Kiểm soát chi tiết dữ liệu đầu ra)
-    context = ""
-    denied = False
-    
+    context = {}
     if user_role == "employee":
-        if asking_all or asking_others:
-            denied = True
-            state["agent_response"] = (
-                f"❌ TRUY CẬP BỊ TỪ CHỐI TẠI AGENT LƯƠNG!\n"
-                f"Tài khoản Nhân viên [{user_name}] của bạn chỉ được phép truy vấn lương cá nhân. "
-                f"Bạn không có quyền xem thông tin lương của người khác."
-            )
-        else:
-            # Chỉ lấy đúng dữ liệu lương của bản thân
-            salary_data = SALARY_DB.get(user_name, {})
-            context = f"Lương của bạn ({user_name}) là: {salary_data.get('salary', 0):,} VND"
-            
-    elif user_role in ["accountant", "admin"]:
-        # Accountant & Admin được quyền truy cập mọi thông tin
-        if asking_all:
-            list_salary = [f"- {name}: {data['salary']:,} VND ({data['role'].upper()})" for name, data in SALARY_DB.items()]
-            context = "DANH SÁCH BẢNG LƯƠNG TOÀN CÔNG TY:\n" + "\n".join(list_salary)
-        elif asking_others and target_person:
-            salary_data = SALARY_DB.get(target_person, {})
-            context = f"Lương của nhân viên {target_person} ({salary_data.get('role').upper()}) là: {salary_data.get('salary', 0):,} VND"
-        else:
-            # Mặc định hỏi lương cá nhân của họ
-            salary_data = SALARY_DB.get(user_name, {})
-            context = f"Lương của bạn ({user_name}) là: {salary_data.get('salary', 0):,} VND"
-            
-    if denied:
-        return state
-
-    # 3. Gọi LLM để định dạng câu trả lời bảo mật
-    llm = ChatOpenAI(
-        model="llama-3.3-70b-versatile",
-        api_key=os.getenv("GROQ_API_KEY"),
-        base_url="https://api.groq.com/openai/v1",
-        temperature=0.1
-    )
+        context["salary_data"] = SALARY_DB.get(user_name, {})
+        context["access_level"] = "self"
+    else:
+        context["salary_data"] = SALARY_DB
+        context["access_level"] = "all"
     
-    messages = [
-        SystemMessage(content=(
-            "Bạn là Agent quản lý lương bảo mật của công ty.\n"
-            "Hãy trả lời câu hỏi dựa trên dữ liệu hệ thống được cung cấp dưới đây một cách lịch sự, chính xác. "
-            "Trình bày các con số và danh sách một cách trực quan, khoa học bằng Markdown.\n"
-            f"=== DỮ LIỆU ĐƯỢC PHÉP TRUY CẬP ===\n{context}\n=================================="
-        )),
-        HumanMessage(content=query)
-    ]
+    context["user_name"] = user_name
+    context["user_role"] = user_role
     
-    response = llm.invoke(messages)
-    state["agent_response"] = response.content
+    response = await salary_agent_with_skills.process(query, user_role, context)
+    state["agent_response"] = response
     return state
 
-
-# === 7. NODE AGENT 3: QUẢN TRỊ HỆ THỐNG (System Admin Agent) ===
+# === NODE AGENT 3: QUẢN TRỊ HỆ THỐNG (System Admin Agent) ===
 def system_admin_node(state: MultiAgentState) -> MultiAgentState:
-    """
-    Agent quản trị hạ tầng kỹ thuật.
-    Chỉ có tài khoản 'admin' mới được phép truy cập (được bảo vệ từ Router-level).
-    """
     query = state["query"]
     
-    # Mock dữ liệu trạng thái máy chủ bảo mật
     server_metrics = (
         "TRẠNG THÁI HẠ TẦNG KỸ THUẬT HỆ THỐNG:\n"
         "- Thiết bị: Dell PowerEdge R750 (2x Intel Xeon Gold 6330, 256GB RAM DDR4)\n"
@@ -266,9 +216,9 @@ def system_admin_node(state: MultiAgentState) -> MultiAgentState:
     )
     
     llm = ChatOpenAI(
-        model="llama-3.3-70b-versatile",
-        api_key=os.getenv("GROQ_API_KEY"),
-        base_url="https://api.groq.com/openai/v1",
+        model=settings.LLM_MODEL,
+        api_key=settings.GROQ_API_KEY,
+        base_url=settings.LLM_BASE_URL,
         temperature=0.1
     )
     
@@ -287,18 +237,12 @@ def system_admin_node(state: MultiAgentState) -> MultiAgentState:
     state["agent_response"] = response.content
     return state
 
-
-# === 8. NODE PHỤ: XỬ LÝ CHÀO HỎI & CÂU HỎI CHUNG (General Handler) ===
+# === NODE PHỤ: XỬ LÝ CHÀO HỎI & CÂU HỎI CHUNG (General Handler) ===
 def general_handler_node(state: MultiAgentState) -> MultiAgentState:
-    """
-    Xử lý các câu hỏi nằm ngoài phạm vi hoặc chào hỏi thông thường.
-    Hướng dẫn người dùng các chức năng phù hợp theo vai trò của họ.
-    """
     query = state["query"]
     user_name = state["user_name"]
     user_role = state["user_role"]
     
-    # Hướng dẫn tuỳ chỉnh theo vai trò
     guide = ""
     if user_role == "employee":
         guide = (
@@ -310,20 +254,20 @@ def general_handler_node(state: MultiAgentState) -> MultiAgentState:
         guide = (
             "Với vai trò Kế toán, bạn có quyền:\n"
             "- Hỏi về chế độ, quy định công ty tại HR Agent.\n"
-            "- Hỏi và quản lý lương của tất cả mọi người (ví dụ: 'Cho tôi xem danh sách lương công ty', 'Lương của Nguyen Van A bao nhiêu?') tại Salary Agent."
+            "- Hỏi và quản lý lương của tất cả mọi người (ví dụ: 'Cho tôi xem danh sách lương công ty') tại Salary Agent."
         )
     elif user_role == "admin":
         guide = (
             "Với vai trò Quản trị viên (Admin), bạn có quyền truy cập toàn bộ hệ thống:\n"
             "- Hỏi về quy chế công ty (HR Agent).\n"
             "- Quản lý bảng lương của toàn bộ nhân viên (Salary Agent).\n"
-            "- Kiểm tra và quản trị hạ tầng kỹ thuật máy chủ (ví dụ: 'Xem trạng thái CPU và RAM', 'Kiểm tra lỗi server hôm nay') tại System Admin Agent."
+            "- Kiểm tra và quản trị hạ tầng kỹ thuật máy chủ (ví dụ: 'Xem trạng thái CPU và RAM') tại System Admin Agent."
         )
         
     llm = ChatOpenAI(
-        model="llama-3.3-70b-versatile",
-        api_key=os.getenv("GROQ_API_KEY"),
-        base_url="https://api.groq.com/openai/v1",
+        model=settings.LLM_MODEL,
+        api_key=settings.GROQ_API_KEY,
+        base_url=settings.LLM_BASE_URL,
         temperature=0.5
     )
     
@@ -341,12 +285,8 @@ def general_handler_node(state: MultiAgentState) -> MultiAgentState:
     state["agent_response"] = response.content
     return state
 
-
-# === 9. HÀM ĐỊNH TUYẾN TRONG ĐỒ THỊ LANGGRAPH ===
+# === HÀM ĐỊNH TUYẾN TRONG ĐỒ THỊ LANGGRAPH ===
 def route_to_agent(state: MultiAgentState) -> str:
-    """
-    Hàm phân phối điều kiện để quyết định Node tiếp theo dựa trên kết quả của Router Node
-    """
     if not state["access_granted"]:
         return "end"
         
@@ -360,22 +300,18 @@ def route_to_agent(state: MultiAgentState) -> str:
     else:
         return "general_handler"
 
-
-# === 10. XÂY DỰNG ĐỒ THỊ ĐA AGENT PHÂN QUYỀN ===
+# === XÂY DỰNG ĐỒ THỊ ===
 def build_multi_agent_system():
     workflow = StateGraph(MultiAgentState)
     
-    # Đăng ký các Node
     workflow.add_node("router", router_node)
     workflow.add_node("hr_policies", hr_policies_node)
     workflow.add_node("salary_management", salary_management_node)
     workflow.add_node("system_admin", system_admin_node)
     workflow.add_node("general_handler", general_handler_node)
     
-    # Thiết lập điểm vào chính
     workflow.set_entry_point("router")
     
-    # Thiết lập các liên kết điều kiện từ Router Node
     workflow.add_conditional_edges(
         "router",
         route_to_agent,
@@ -388,7 +324,6 @@ def build_multi_agent_system():
         }
     )
     
-    # Liên kết các Agent về điểm kết thúc END
     workflow.add_edge("hr_policies", END)
     workflow.add_edge("salary_management", END)
     workflow.add_edge("system_admin", END)
@@ -396,12 +331,12 @@ def build_multi_agent_system():
     
     return workflow.compile()
 
-
-# === 11. HÀM GIAO DIỆN CHAT TƯƠNG TÁC QUA TERMINAL ===
-def run_interactive():
+# === HÀM CHẠY TƯƠNG TÁC ===
+async def run_interactive():
     chatbot = build_multi_agent_system()
+    
     print("\n" + "=" * 65)
-    print("   🌐 HỆ THỐNG ĐA AGENT ĐỊNH TUYẾN & PHÂN QUYỀN TỰ ĐỘNG (RBAC) 🌐")
+    print("   🌐 HỆ THỐNG ĐA AGENT VỚI SKILL SYSTEM 🌐")
     print("=" * 65)
     
     print("\nDanh sách tài khoản giả lập trong hệ thống:")
@@ -426,9 +361,12 @@ def run_interactive():
     print(f"🔑 Vai trò: {role.upper()}")
     print("-" * 65)
     print("Bắt đầu đặt câu hỏi cho hệ thống đa Agent.")
-    print("Gõ 'exit' hoặc 'quit' để kết thúc.")
+    print("Chức năng đặc biệt:")
+    print("  - Gõ /skills để liệt kê kỹ năng khả dụng.")
+    print("  - Gõ /create_skill [mô tả] để tự động tạo kỹ năng mới.")
+    print("  - Gõ 'exit' hoặc 'quit' để kết thúc.")
     print("-" * 65)
-
+    
     while True:
         try:
             query = input(f"\n👤 {name} ({role.upper()}) > ").strip()
@@ -437,9 +375,46 @@ def run_interactive():
             if query.lower() in ["exit", "quit"]:
                 print("\n👋 Đã thoát phiên làm việc. Tạm biệt!")
                 break
-
-            # Thực thi đồ thị
-            result = chatbot.invoke({
+                
+            if query.lower() == "/skills":
+                skills = salary_agent_with_skills.get_available_skills(role)
+                print("\n📚 SKILLS KHẢ DỤNG:")
+                if not skills:
+                    print("  (Không có skill khả dụng cho vai trò này)")
+                for s in skills:
+                    print(f"  - {s.name}: {s.description}")
+                continue
+                
+            if query.lower().startswith("/create_skill"):
+                description = query.replace("/create_skill", "").strip()
+                if not description:
+                    print("❌ Vui lòng nhập mô tả skill. Ví dụ: /create_skill Tính thưởng theo thâm niên")
+                    continue
+                    
+                print("⏳ Đang tạo skill từ mô tả của bạn...")
+                new_skill = await skill_factory.create_from_description(
+                    user_description=description,
+                    agent_id="salary_management",
+                    created_by=name
+                )
+                skill_registry.register(new_skill, ["salary_management"])
+                salary_agent_with_skills.enable_skill(new_skill.id)
+                
+                # Lưu skill vào ổ đĩa để duy trì khi khởi động lại (persistence)
+                try:
+                    skill_file = os.path.join(settings.SKILLS_DIR, f"{new_skill.id}.json")
+                    os.makedirs(os.path.dirname(skill_file), exist_ok=True)
+                    with open(skill_file, "w", encoding="utf-8") as f:
+                        f.write(new_skill.model_dump_json(indent=4))
+                    print(f"💾 Đã lưu file cấu hình skill tại: {skill_file}")
+                except Exception as e:
+                    print(f"⚠️ Lỗi không thể lưu skill vào ổ đĩa: {e}")
+                    
+                print(f"✅ Đã tạo và kích hoạt skill: {new_skill.name}")
+                continue
+            
+            # Xử lý query bình thường
+            result = await chatbot.ainvoke({
                 "user_id": user_id,
                 "user_role": role,
                 "user_name": name,
@@ -456,8 +431,7 @@ def run_interactive():
             print("\n👋 Đã thoát phiên làm việc. Tạm biệt!")
             break
         except Exception as e:
-            print(f"\n❌ Đã xảy ra lỗi hệ thống: {e}")
-
+            print(f"\n❌ Lỗi: {e}")
 
 if __name__ == "__main__":
-    run_interactive()
+    asyncio.run(run_interactive())

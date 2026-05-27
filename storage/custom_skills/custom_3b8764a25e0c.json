@@ -1,0 +1,34 @@
+{
+    "id": "custom_3b8764a25e0c",
+    "name": "list_employees",
+    "version": "1.0.0",
+    "description": "Liệt kê danh sách nhân viên trong công ty",
+    "skill_type": "query",
+    "parameters": [],
+    "system_prompt": "Truy vấn cơ sở dữ liệu nhân viên và trả về danh sách tên nhân viên. Bước 1: Kết nối đến cơ sở dữ liệu. Bước 2: Thực hiện truy vấn SELECT để lấy tên nhân viên. Bước 3: Trả về danh sách tên nhân viên dưới dạng văn bản.",
+    "permission": {
+        "required_roles": [
+            "admin",
+            "employee"
+        ],
+        "required_departments": [],
+        "max_access_level": 1
+    },
+    "examples": [
+        "Liệt kê danh sách nhân viên",
+        "Danh sách tên nhân viên trong công ty"
+    ],
+    "metadata": {
+        "keywords": [
+            "nhân viên",
+            "danh sách",
+            "công ty"
+        ],
+        "created_by": "Nguyen Admin",
+        "created_at": "2026-05-27T15:29:53.731722",
+        "user_description": "liệt kê danh sách nhân viên (liệt kê tên nhân viên trong công ty)",
+        "agent_id": "salary_management"
+    },
+    "created_at": "2026-05-27T15:29:53.731753",
+    "created_by": "Nguyen Admin"
+}
