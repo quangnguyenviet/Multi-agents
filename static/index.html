@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Multi-Agent RBAC Studio</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* CSS RESET & VARIABLES */
+        :root {
+            --bg-deep: #090d16;
+            --bg-card: rgba(17, 25, 40, 0.65);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --color-primary: #6366f1;
+            --color-primary-glow: rgba(99, 102, 241, 0.35);
+            --color-accent: #a855f7;
+            --color-accent-glow: rgba(168, 85, 247, 0.35);
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+            --font-outfit: 'Outfit', sans-serif;
+            --font-inter: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(168, 85, 247, 0.12) 0px, transparent 50%);
+            background-attachment: fixed;
+            font-family: var(--font-inter);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* CONTAINER LAYOUT */
+        .app-container {
+            width: 96vw;
+            height: 92vh;
+            max-width: 1600px;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            display: grid;
+            grid-template-columns: 320px 1fr 360px;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+
+        /* SIDEBAR (LEFT) */
+        .sidebar {
+            border-right: 1px solid var(--border-glass);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            background: rgba(10, 15, 28, 0.4);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .brand-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 15px var(--color-primary-glow);
+        }
+
+        .brand-logo i {
+            font-size: 20px;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        .brand-title {
+            font-family: var(--font-outfit);
+            font-weight: 700;
+            font-size: 18px;
+            background: linear-gradient(to right, #ffffff, #c7d2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.5px;
+        }
+
+        .brand-subtitle {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 2px;
+        }
+
+        /* USER SELECTOR */
+        .user-selector-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 28px;
+            transition: all 0.3s ease;
+        }
+
+        .user-selector-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .user-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        .user-select {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            padding: 12px 35px 12px 16px;
+            color: white;
+            font-family: var(--font-inter);
+            font-size: 14px;
+            font-weight: 500;
+            appearance: none;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-select:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+        }
+
+        .select-wrapper::after {
+            content: '\f0d7';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            pointer-events: none;
+        }
+
+        .user-badge-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--border-glass);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--color-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 600;
+            font-size: 14px;
+            color: white;
+        }
+
+        .user-meta-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-meta-name {
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .role-badge {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 8px;
+            border-radius: 6px;
+            width: fit-content;
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .role-employee { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .role-accountant { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .role-admin { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        /* AGENTS WORKSPACE LIST */
+        .workspace-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 1.5px;
+            margin-bottom: 16px;
+        }
+
+        .agent-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex-grow: 1;
+        }
+
+        .agent-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid var(--border-glass);
+            background: rgba(255, 255, 255, 0.01);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .agent-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: transparent;
+            transition: all 0.3s ease;
+        }
+
+        .agent-card:hover:not(.locked) {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateX(4px);
+        }
+
+        .agent-card.active {
+            background: rgba(99, 102, 241, 0.08);
+            border-color: rgba(99, 102, 241, 0.25);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.05);
+        }
+
+        .agent-card.active::before {
+            background: linear-gradient(to bottom, var(--color-primary), var(--color-accent));
+        }
+
+        .agent-icon-wrapper {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .agent-card.active .agent-icon-wrapper {
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+            color: white;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+        }
+
+        .agent-details {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .agent-name {
+            font-weight: 600;
+            font-size: 14px;
+            font-family: var(--font-outfit);
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .agent-desc {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .agent-status-badge {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        /* LOCKED AGENT STYLES */
+        .agent-card.locked {
+            opacity: 0.45;
+            cursor: not-allowed;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .agent-card.locked .agent-name {
+            color: var(--text-secondary);
+        }
+
+        .agent-card.locked .agent-status-badge {
+            color: var(--color-danger);
+            animation: shake 0.5s ease-in-out;
+        }
+
+        /* MAIN CHAT AREA (CENTER) */
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: rgba(5, 7, 14, 0.2);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--border-glass);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(10, 15, 28, 0.2);
+        }
+
+        .active-agent-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .active-agent-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            color: white;
+            box-shadow: 0 0 15px var(--color-primary-glow);
+        }
+
+        .active-agent-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .active-agent-title {
+            font-family: var(--font-outfit);
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .active-agent-status {
+            font-size: 11px;
+            color: var(--color-success);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--color-success);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--color-success);
+            display: inline-block;
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        .chat-controls {
+            display: flex;
+            gap: 12px;
+        }
+
+        .control-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            border: 1px solid var(--border-glass);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        /* CHAT MESSAGE LIST */
+        .message-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            min-height: 0;
+            padding: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            scroll-behavior: smooth;
+        }
+
+        /* Custom Scrollbar */
+        .message-list::-webkit-scrollbar, .skills-list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .message-list::-webkit-scrollbar-track, .skills-list-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .message-list::-webkit-scrollbar-thumb, .skills-list-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        .message-list::-webkit-scrollbar-thumb:hover, .skills-list-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .message-bubble {
+            display: flex;
+            gap: 16px;
+            max-width: 85%;
+            animation: slideUp 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+        }
+
+        .message-bubble.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .msg-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1e293b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .message-bubble.user .msg-avatar {
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+        }
+
+        .msg-content-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .message-bubble.user .msg-content-wrapper {
+            align-items: flex-end;
+        }
+
+        .msg-header-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .msg-body {
+            padding: 14px 18px;
+            border-radius: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .message-bubble.assistant .msg-body {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-top-left-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .message-bubble.user .msg-body {
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+            border-top-right-radius: 4px;
+            color: white;
+            box-shadow: 0 4px 15px var(--color-primary-glow);
+        }
+
+        /* MARKDOWN / TABLE IN MESSAGES */
+        .msg-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 13px;
+        }
+
+        .msg-body th, .msg-body td {
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .msg-body th {
+            background: rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+        }
+
+        .msg-body tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .msg-body code {
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #d8b4fe;
+        }
+
+        .skill-badge-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--color-accent);
+            background: rgba(168, 85, 247, 0.15);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        /* TYPING INDICATOR */
+        .typing-bubble {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 12px 18px !important;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        /* CHAT INPUT AREA */
+        .chat-input-container {
+            padding: 20px 28px 28px;
+            background: rgba(10, 15, 28, 0.3);
+            border-top: 1px solid var(--border-glass);
+        }
+
+        .chips-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+
+        .shortcut-chip {
+            font-size: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: 100px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .shortcut-chip:hover {
+            background: rgba(99, 102, 241, 0.1);
+            color: white;
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .input-bar-wrapper {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-glass);
+            border-radius: 100px;
+            padding: 6px 6px 6px 20px;
+            transition: all 0.3s ease;
+        }
+
+        .input-bar-wrapper:focus-within {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        .chat-input {
+            flex-grow: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: white;
+            font-family: var(--font-inter);
+            font-size: 14px;
+            padding: 8px 0;
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .send-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 10px var(--color-primary-glow);
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px var(--color-primary-glow), 0 0 15px var(--color-accent-glow);
+        }
+
+        /* SKILL STUDIO (RIGHT SIDEBAR) */
+        .right-sidebar {
+            background: rgba(10, 15, 28, 0.3);
+            border-left: 1px solid var(--border-glass);
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .studio-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .studio-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--color-accent), var(--color-primary));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            color: white;
+            box-shadow: 0 0 10px var(--color-accent-glow);
+        }
+
+        .studio-title {
+            font-family: var(--font-outfit);
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(to right, white, #e9d5ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* STUDIO FORM */
+        .studio-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .form-input, .form-textarea, .form-select {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: white;
+            font-family: var(--font-inter);
+            font-size: 13px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            border-color: var(--color-accent);
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.15);
+        }
+
+        .form-textarea {
+            resize: none;
+            height: 80px;
+        }
+
+        .form-select {
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .studio-submit-btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, var(--color-accent), var(--color-primary));
+            color: white;
+            font-family: var(--font-outfit);
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 0 10px var(--color-accent-glow);
+            transition: all 0.3s ease;
+        }
+
+        .studio-submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px var(--color-accent-glow);
+        }
+
+        /* LIVE SKILLS LIST REGISTRY */
+        .skills-list-wrapper {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .skills-list-container {
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-grow: 1;
+            padding-right: 2px;
+        }
+
+        .skill-list-card {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .skill-list-card:hover {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(168, 85, 247, 0.25);
+        }
+
+        .skill-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .skill-list-name {
+            font-family: var(--font-outfit);
+            font-weight: 600;
+            font-size: 13px;
+            color: white;
+        }
+
+        .skill-list-badge {
+            font-size: 9px;
+            text-transform: uppercase;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+        }
+
+        .skill-list-desc {
+            font-size: 11px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .skill-list-target {
+            font-size: 10px;
+            color: var(--color-accent);
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        /* STUDIO LOCK OVERLAY (WHEN NON-ADMIN) */
+        .studio-lock-overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(9, 13, 22, 0.92);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            padding: 32px;
+            text-align: center;
+            z-index: 10;
+            transition: all 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .studio-lock-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .lock-icon-glow {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: var(--color-danger);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+            animation: pulse-danger 2s infinite;
+        }
+
+        .lock-title {
+            font-family: var(--font-outfit);
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .lock-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* KEYFRAME ANIMATIONS */
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 10px var(--color-primary-glow); }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px var(--color-primary-glow), 0 0 15px var(--color-accent-glow); }
+            100% { transform: scale(1); box-shadow: 0 0 10px var(--color-primary-glow); }
+        }
+
+        @keyframes pulse-dot {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.4; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes pulse-danger {
+            0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.15); }
+            50% { box-shadow: 0 0 25px rgba(239, 68, 68, 0.35); }
+            100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.15); }
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+
+        /* LOADING SPINNER */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* TOAST SUCCESS */
+        .toast-notification {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(16, 185, 129, 0.95);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            backdrop-filter: blur(10px);
+            padding: 14px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            z-index: 100;
+        }
+
+        .toast-notification.active {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* PREMIUM GLASSMORPHISM REVIEW MODAL (HUMAN-IN-THE-LOOP) */
+        .studio-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(10, 10, 12, 0.7);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .studio-modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .studio-modal-card {
+            width: 680px;
+            max-width: 90vw;
+            max-height: 85vh;
+            background: rgba(26, 27, 35, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 
+                        inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.9) translateY(20px);
+            transition: transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.15);
+        }
+
+        .studio-modal-overlay.active .studio-modal-card {
+            transform: scale(1) translateY(0);
+        }
+
+        .studio-modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+        }
+
+        .modal-header-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .modal-header-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            margin: 0 0 4px 0;
+        }
+
+        .modal-header-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .modal-close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .modal-close-btn:hover {
+            color: white;
+        }
+
+        .studio-modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .modal-row {
+            display: flex;
+            gap: 16px;
+        }
+
+        .modal-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .role-checkbox-group {
+            display: flex;
+            gap: 16px;
+            margin-top: 4px;
+        }
+
+        .role-checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .role-checkbox-label:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .role-checkbox-label input {
+            cursor: pointer;
+            accent-color: var(--accent);
+            width: 16px;
+            height: 16px;
+        }
+
+        .role-checkbox-label span {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .role-checkbox-label input:checked + span {
+            color: white;
+        }
+
+        .studio-modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            background: rgba(20, 20, 25, 0.4);
+        }
+
+        .modal-btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .modal-btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
+            border: none;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+            transition: all 0.2s;
+        }
+
+        .modal-btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .modal-btn-primary:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- SIDEBAR (LEFT) -->
+        <div class="sidebar">
+            <div class="brand">
+                <div class="brand-logo"><i class="fa-solid fa-brain"></i></div>
+                <div>
+                    <h1 class="brand-title">Antigravity</h1>
+                    <div class="brand-subtitle">RBAC Studio</div>
+                </div>
+            </div>
+
+            <!-- USER SELECTOR -->
+            <div class="user-selector-card">
+                <label class="user-label">Chọn tài khoản</label>
+                <div class="select-wrapper">
+                    <select id="userSelect" class="user-select" onchange="switchUser()">
+                        <option value="emp_001">Nguyen Van A (Employee)</option>
+                        <option value="emp_002">Tran Thi B (Employee)</option>
+                        <option value="acc_001">Le Van C (Accountant)</option>
+                        <option value="adm_001" selected>Nguyen Admin (Admin)</option>
+                    </select>
+                </div>
+                
+                <div class="user-badge-display">
+                    <div class="user-avatar" id="userAvatar">NA</div>
+                    <div class="user-meta-info">
+                        <span class="user-meta-name" id="userName">Nguyen Admin</span>
+                        <span class="role-badge role-admin" id="userRoleBadge">ADMIN</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WORKSPACE LIST -->
+            <h2 class="workspace-title">Agent Workspaces</h2>
+            <div class="agent-list" id="agentList">
+                <!-- Loaded dynamically -->
+            </div>
+        </div>
+
+        <!-- MAIN CHAT AREA (CENTER) -->
+        <div class="chat-area">
+            <!-- Header -->
+            <div class="chat-header">
+                <div class="active-agent-info">
+                    <div class="active-agent-avatar" id="activeAgentAvatar"><i class="fa-solid fa-users-gear"></i></div>
+                    <div class="active-agent-meta">
+                        <h2 class="active-agent-title" id="activeAgentTitle">HR Policies Agent</h2>
+                        <span class="active-agent-status"><span class="status-dot"></span> Online & Sẵn sàng</span>
+                    </div>
+                </div>
+                <div class="chat-controls">
+                    <button class="control-btn" title="Clear Chat History" onclick="clearChat()"><i class="fa-solid fa-rotate-right"></i></button>
+                    <button class="control-btn" title="Copy Agent ID" onclick="copyAgentId()"><i class="fa-solid fa-fingerprint"></i></button>
+                </div>
+            </div>
+
+            <!-- Message list -->
+            <div class="message-list" id="messageList">
+                <!-- Messages load dynamically -->
+            </div>
+
+            <!-- Input area -->
+            <div class="chat-input-container">
+                <div class="chips-container" id="chipsContainer">
+                    <div class="shortcut-chip" onclick="sendShortcut('/agents')"><i class="fa-solid fa-compass"></i> /agents</div>
+                    <div class="shortcut-chip" id="skillsChip" onclick="sendShortcut('/skills')"><i class="fa-solid fa-wand-magic-sparkles"></i> /skills</div>
+                </div>
+                <div class="input-bar-wrapper">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Hỏi gì đó hoặc gõ lệnh /..." onkeydown="handleInputKeydown(event)">
+                    <button class="send-btn" onclick="sendMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- SKILL STUDIO (RIGHT) -->
+        <div class="right-sidebar">
+            <!-- LOCK OVERLAY FOR NON-ADMINS -->
+            <div class="studio-lock-overlay" id="studioLock">
+                <div class="lock-icon-glow"><i class="fa-solid fa-shield-halved"></i></div>
+                <h3 class="lock-title">Quyền truy cập bị chặn</h3>
+                <p class="lock-desc">Chỉ tài khoản có vai trò <strong>ADMIN</strong> mới có quyền truy cập vào Studio Thiết Kế Kỹ Năng Động này.</p>
+            </div>
+
+            <div class="studio-header">
+                <div class="studio-logo"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+                <h2 class="studio-title">Admin Skill Studio</h2>
+            </div>
+
+            <!-- Create skill form -->
+            <div class="studio-form">
+                <div class="form-group">
+                    <label class="form-label">Chọn Agent Trang Bị</label>
+                    <select id="studioTargetAgent" class="form-select">
+                        <option value="salary_management">Salary Management Agent</option>
+                        <option value="hr_policies">HR Policies Agent</option>
+                        <option value="system_admin">System Admin Agent</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Tên Skill (Tiếng Anh)</label>
+                    <input type="text" id="studioSkillName" class="form-input" placeholder="Ví dụ: calculate_ot_salary">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Mô tả ý tưởng Kỹ năng</label>
+                    <textarea id="studioSkillDesc" class="form-textarea" placeholder="Ví dụ: Tính tiền làm thêm giờ (OT) dựa vào mức lương thực nhận nhân 1.5 lần..."></textarea>
+                </div>
+
+                <button class="studio-submit-btn" id="submitSkillBtn" onclick="createSkill()">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Thiết kế & Lưu trữ Skill</span>
+                </button>
+            </div>
+
+            <!-- Skills List Catalog -->
+            <div class="skills-list-wrapper">
+                <h3 class="workspace-title">Skill Catalog</h3>
+                <div class="skills-list-container" id="skillsCatalog">
+                    <!-- Standard builtin skills will load here dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREMIUM GLASSMORPHISM REVIEW MODAL (HUMAN-IN-THE-LOOP) -->
+    <div class="studio-modal-overlay" id="studioReviewModal">
+        <div class="studio-modal-card animate-modal">
+            <div class="studio-modal-header">
+                <div class="modal-header-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <div>
+                    <h3 class="modal-header-title">Duyệt & Tinh chỉnh Kỹ năng nháp (AI-designed)</h3>
+                    <p class="modal-header-desc">Hãy kiểm tra, chỉnh sửa prompt và cấu hình dưới đây trước khi xuất bản chính thức.</p>
+                </div>
+                <button class="modal-close-btn" onclick="closeReviewModal()">&times;</button>
+            </div>
+            
+            <div class="studio-modal-body">
+                <input type="hidden" id="reviewAgentId">
+                <input type="hidden" id="reviewSkillId">
+                <input type="hidden" id="reviewSkillMetadata">
+                
+                <div class="modal-row">
+                    <div class="modal-col">
+                        <label class="form-label">Tên định danh (English slug)</label>
+                        <input type="text" id="reviewSkillName" class="form-input" placeholder="get_salary_list">
+                    </div>
+                    <div class="modal-col">
+                        <label class="form-label">Loại Kỹ năng</label>
+                        <select id="reviewSkillType" class="form-select">
+                            <option value="query">Query (Truy vấn dữ liệu)</option>
+                            <option value="action">Action (Thực thi hành động)</option>
+                            <option value="transform">Transform (Biến đổi cấu trúc)</option>
+                            <option value="validate">Validate (Xác thực dữ liệu)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Mô tả tóm tắt</label>
+                    <input type="text" id="reviewSkillDesc" class="form-input" placeholder="Mô tả công việc của skill này">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Quyền truy cập vai trò (Roles Required)</label>
+                    <div class="role-checkbox-group">
+                        <label class="role-checkbox-label">
+                            <input type="checkbox" id="roleEmployee" value="employee" checked>
+                            <span>Employee</span>
+                        </label>
+                        <label class="role-checkbox-label">
+                            <input type="checkbox" id="roleAccountant" value="accountant" checked>
+                            <span>Accountant</span>
+                        </label>
+                        <label class="role-checkbox-label">
+                            <input type="checkbox" id="roleAdmin" value="admin" checked>
+                            <span>Admin</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" style="display: flex; justify-content: space-between;">
+                        <span>System Instructions (Prompt chỉ dẫn chi tiết cho Agent)</span>
+                        <span style="color: var(--accent-light); font-size: 0.8rem; font-weight: normal;"><i class="fa-solid fa-circle-info"></i> AI viết tự động, anh có thể sửa tay thoải mái</span>
+                    </label>
+                    <textarea id="reviewSystemPrompt" class="form-textarea" rows="8" placeholder="Viết prompt chỉ dẫn cho AI thực thi..."></textarea>
+                </div>
+                
+                <div class="modal-row">
+                    <div class="modal-col">
+                        <label class="form-label">Từ khóa kích hoạt (cách nhau bằng dấu phẩy)</label>
+                        <input type="text" id="reviewSkillKeywords" class="form-input" placeholder="nhan vien, danh sach, personnel">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Ví dụ câu hỏi của người dùng (mỗi câu một dòng)</label>
+                    <textarea id="reviewSkillExamples" class="form-textarea" rows="2" placeholder="Ví dụ: cho tôi xem danh sách nhân viên&#10;Hiển thị danh sách nhân viên công ty"></textarea>
+                </div>
+            </div>
+            
+            <div class="studio-modal-footer">
+                <button class="modal-btn-secondary" onclick="closeReviewModal()">Hủy bỏ</button>
+                <button class="modal-btn-primary" id="publishSkillBtn" onclick="publishSkill()">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Kích hoạt & Lưu trữ Skill</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast-notification" id="toastNotification">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="toastMessage">Tạo và lưu trữ kỹ năng mới thành công!</span>
+    </div>
+
+    <script>
+        let currentUser = "adm_001";
+        let activeAgent = "hr_policies";
+        
+        // Dynamically detect if opened directly via local file system (file:///)
+        // and prepend uvicorn address to allow CORS testing instantly.
+        const API_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : '';
+        
+        const AVATARS = {
+            "emp_001": "NA",
+            "emp_002": "TB",
+            "acc_001": "LC",
+            "adm_001": "AD"
+        };
+        
+        const WELCOMES = {
+            "hr_policies": "Chào bạn! Tôi là **HR Policies Agent**. Tôi chịu trách nhiệm giải đáp các thông tin chính thức liên quan đến Quy định công sở, Bảo hiểm, Chế độ làm việc và Nghỉ phép.",
+            "salary_management": "Xin chào! Tôi là **Salary Management Agent**. Tôi có thể hỗ trợ tra cứu lương của bạn, tính toán thưởng Tết và báo cáo bảng lương công ty.",
+            "system_admin": "Hệ thống hạ tầng Dell PowerEdge R750 đã kết nối. Tôi là **System Admin Agent**, sẵn sàng hỗ trợ kiểm tra tài nguyên CPU, RAM, SSD máy chủ và đọc logs lỗi hệ thống."
+        };
+
+        // Switch user from dropdown and sync with backend API
+        async function switchUser() {
+            currentUser = document.getElementById("userSelect").value;
+            
+            try {
+                // Fetch agents list and RBAC status from FastAPI
+                const res = await fetch(`${API_BASE}/api/agents?user_id=${currentUser}`);
+                if (!res.ok) throw new Error("API error fetching agents status");
+                const data = await res.json();
+                
+                // Update User Profile details
+                document.getElementById("userAvatar").innerText = AVATARS[currentUser];
+                document.getElementById("userName").innerText = data.name;
+                
+                const badge = document.getElementById("userRoleBadge");
+                badge.innerText = data.role.toUpperCase();
+                badge.className = "role-badge role-" + data.role;
+                
+                // Render Agent Card elements on left sidebar dynamically
+                const list = document.getElementById("agentList");
+                list.innerHTML = "";
+                
+                data.agents.forEach(a => {
+                    const card = document.createElement("div");
+                    card.className = "agent-card" + (a.id === activeAgent ? " active" : "") + (a.is_allowed ? "" : " locked");
+                    card.setAttribute("data-agent-id", a.id);
+                    card.onclick = () => selectAgent(a.id);
+                    
+                    card.innerHTML = `
+                        <div class="agent-icon-wrapper"><i class="fa-solid ${a.icon}"></i></div>
+                        <div class="agent-details">
+                            <span class="agent-name">${a.name}</span>
+                            <span class="agent-desc">${a.description}</span>
+                        </div>
+                        <div class="agent-status-badge" id="lock-${a.id}">
+                            ${a.is_allowed ? '<i class="fa-solid fa-lock-open" style="color: var(--color-success)"></i>' : '<i class="fa-solid fa-lock" style="color: var(--color-danger)"></i>'}
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+                
+                // Toggle Studio Lock Overlay based on role
+                const studioLock = document.getElementById("studioLock");
+                if (data.role === "admin") {
+                    studioLock.classList.remove("active");
+                } else {
+                    studioLock.classList.add("active");
+                }
+                
+                // If currently selected agent is locked, force switch to allowed hr_policies
+                const currentAgentData = data.agents.find(a => a.id === activeAgent);
+                if (currentAgentData && !currentAgentData.is_allowed) {
+                    await selectAgent("hr_policies");
+                } else {
+                    // Sync the Skills Catalog
+                    await renderSkillsCatalog();
+                }
+                
+                // Update short-chips
+                document.getElementById("skillsChip").setAttribute("onclick", `sendShortcut('/skills ${activeAgent}')`);
+                
+                addSystemMessage(`Người dùng thay đổi: Đăng nhập thành công vào tài khoản <strong>${data.name}</strong> (${data.role.toUpperCase()})`);
+                
+            } catch (err) {
+                console.error(err);
+                addSystemMessage("❌ Lỗi đồng bộ hóa dữ liệu từ máy chủ API Backend.");
+            }
+        }
+
+        // Handle Agent Change
+        async function selectAgent(agentId) {
+            const cards = document.querySelectorAll(".agent-card");
+            const targetCard = document.querySelector(`[data-agent-id="${agentId}"]`);
+            
+            if (targetCard && targetCard.classList.contains("locked")) {
+                // Shake card animation
+                targetCard.style.animation = 'shake 0.5s ease-in-out';
+                setTimeout(() => { targetCard.style.animation = ''; }, 500);
+                
+                addSystemMessage(`❌ Bạn không có quyền truy cập vào Agent <strong>${agentId}</strong>.`);
+                return;
+            }
+            
+            // Set Active class
+            cards.forEach(c => c.classList.remove("active"));
+            if (targetCard) targetCard.classList.add("active");
+            
+            activeAgent = agentId;
+            
+            // Update Top Header
+            const agentIcons = { "hr_policies": "fa-users-gear", "salary_management": "fa-wallet", "system_admin": "fa-server" };
+            const agentNames = { "hr_policies": "HR Policies Agent", "salary_management": "Salary Agent", "system_admin": "System Admin Agent" };
+            
+            document.getElementById("activeAgentAvatar").innerHTML = `<i class="fa-solid ${agentIcons[agentId]}"></i>`;
+            document.getElementById("activeAgentTitle").innerText = agentNames[agentId];
+            
+            // Clear message list and print welcome
+            clearChat();
+            
+            // Sync Catalog and chip triggers
+            document.getElementById("skillsChip").setAttribute("onclick", `sendShortcut('/skills ${activeAgent}')`);
+            await renderSkillsCatalog();
+        }
+
+        // Render Skill Catalog on the right Column
+        async function renderSkillsCatalog() {
+            const container = document.getElementById("skillsCatalog");
+            container.innerHTML = "";
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/skills?agent_id=${activeAgent}&user_id=${currentUser}`);
+                if (!res.ok) {
+                    container.innerHTML = `<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:20px;">Không có quyền xem Skill Catalog của Agent này.</div>`;
+                    return;
+                }
+                const skills = await res.json();
+                
+                if (skills.length === 0) {
+                    container.innerHTML = `<div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:20px;">Không có skill nào khả dụng cho vai trò này.</div>`;
+                    return;
+                }
+                
+                // Get user role to determine if we should show delete action
+                const userRoleRes = await fetch(`${API_BASE}/api/agents?user_id=${currentUser}`);
+                const userData = await userRoleRes.json();
+                const isAdmin = userData.role === "admin";
+                
+                skills.forEach(s => {
+                    const card = document.createElement("div");
+                    card.className = "skill-list-card";
+                    
+                    const deleteBtn = isAdmin 
+                        ? `<button onclick="deleteSkill('${s.id}')" style="background:none;border:none;color:var(--color-danger);cursor:pointer;font-size:13px;transition:all 0.3s ease;padding:2px 6px;" title="Xóa Kỹ năng"><i class="fa-solid fa-trash-can"></i></button>`
+                        : '';
+                        
+                    card.innerHTML = `
+                        <div class="skill-list-header">
+                            <span class="skill-list-name">${s.name}</span>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span class="skill-list-badge">Ready</span>
+                                ${deleteBtn}
+                            </div>
+                        </div>
+                        <p class="skill-list-desc">${s.description}</p>
+                        <span class="skill-list-target"><i class="fa-solid fa-circle-dot"></i> Roles: ${s.required_roles.join(', ')}</span>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<div style="font-size:11px;color:var(--color-danger);text-align:center;padding:20px;">Lỗi tải Skill Catalog.</div>`;
+            }
+        }
+
+        // Print system notifications inside chat
+        function addSystemMessage(text) {
+            const list = document.getElementById("messageList");
+            const div = document.createElement("div");
+            div.style.alignSelf = "center";
+            div.style.background = "rgba(255, 255, 255, 0.02)";
+            div.style.border = "1px solid var(--border-glass)";
+            div.style.borderRadius = "100px";
+            div.style.padding = "6px 16px";
+            div.style.fontSize = "11px";
+            div.style.color = "var(--text-secondary)";
+            div.style.textAlign = "center";
+            div.style.margin = "12px 0";
+            div.style.animation = "slideUp 0.3s ease";
+            div.innerHTML = text;
+            list.appendChild(div);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        // Clear and print Agent welcome message
+        function clearChat() {
+            const list = document.getElementById("messageList");
+            list.innerHTML = "";
+            
+            const agentNames = { "hr_policies": "HR Policies Agent", "salary_management": "Salary Agent", "system_admin": "System Admin Agent" };
+            const agentAvatars = { "hr_policies": "HR", "salary_management": "SA", "system_admin": "SY" };
+            
+            const div = document.createElement("div");
+            div.className = "message-bubble assistant";
+            div.innerHTML = `
+                <div class="msg-avatar">${agentAvatars[activeAgent]}</div>
+                <div class="msg-content-wrapper">
+                    <div class="msg-header-info">
+                        <span>${agentNames[activeAgent]}</span> • <span>Bây giờ</span>
+                    </div>
+                    <div class="msg-body">${formatMarkdown(WELCOMES[activeAgent])}</div>
+                </div>
+            `;
+            list.appendChild(div);
+        }
+
+        // Convert Markdown styles to Premium HTML format
+        function formatMarkdown(text) {
+            let formatted = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code>$1</code>');
+                
+            // Markdown tables parsing
+            if (formatted.includes('|')) {
+                const lines = formatted.split('\n');
+                let tableHtml = '<table><thead>';
+                let inTable = false;
+                let headerProcessed = false;
+
+                lines.forEach((line) => {
+                    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+                        inTable = true;
+                        const columns = line.split('|').slice(1, -1).map(c => c.trim());
+                        
+                        // Separator line
+                        if (columns[0].startsWith('---')) return;
+
+                        if (!headerProcessed) {
+                            tableHtml += '<tr>' + columns.map(c => `<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+                            headerProcessed = true;
+                        } else {
+                            tableHtml += '<tr>' + columns.map(c => `<td>${c}</td>`).join('') + '</tr>';
+                        }
+                    } else if (inTable) {
+                        tableHtml += '</tbody></table>';
+                        inTable = false;
+                    }
+                });
+                
+                if (inTable) {
+                    tableHtml += '</tbody></table>';
+                }
+                
+                const tableStartIndex = formatted.indexOf('|');
+                const tableEndIndex = formatted.lastIndexOf('|') + 1;
+                formatted = formatted.substring(0, tableStartIndex) + tableHtml + formatted.substring(tableEndIndex);
+            }
+
+            // Bullet points
+            formatted = formatted.replace(/\n\*\s(.*)/g, '\n<li>$1</li>');
+            formatted = formatted.replace(/\n\d\.\s(.*)/g, '\n<li>$1</li>');
+            
+            return formatted;
+        }
+
+        function copyAgentId() {
+            navigator.clipboard.writeText(activeAgent);
+            showToast("Đã sao chép Agent ID: " + activeAgent + "!");
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById("toastNotification");
+            document.getElementById("toastMessage").innerText = message;
+            toast.classList.add("active");
+            setTimeout(() => { toast.classList.remove("active"); }, 3000);
+        }
+
+        function handleInputKeydown(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        }
+
+        function sendShortcut(text) {
+            document.getElementById("chatInput").value = text;
+            sendMessage();
+        }
+
+        // Send chat message to FastAPI
+        async function sendMessage() {
+            const input = document.getElementById("chatInput");
+            const query = input.value.trim();
+            if (!query) return;
+
+            input.value = "";
+
+            const list = document.getElementById("messageList");
+
+            // Render User bubble
+            const userDiv = document.createElement("div");
+            userDiv.className = "message-bubble user";
+            userDiv.innerHTML = `
+                <div class="msg-avatar">${AVATARS[currentUser]}</div>
+                <div class="msg-content-wrapper">
+                    <div class="msg-header-info">
+                        <span>${document.getElementById("userName").innerText}</span> • <span>Vừa xong</span>
+                    </div>
+                    <div class="msg-body">${query}</div>
+                </div>
+            `;
+            list.appendChild(userDiv);
+            list.scrollTop = list.scrollHeight;
+
+            // Render typing indicator
+            const typingDiv = document.createElement("div");
+            typingDiv.className = "message-bubble assistant";
+            typingDiv.id = "typingBubble";
+            
+            const agentAvatars = { "hr_policies": "HR", "salary_management": "SA", "system_admin": "SY" };
+            const agentNames = { "hr_policies": "HR Policies Agent", "salary_management": "Salary Agent", "system_admin": "System Admin Agent" };
+            
+            typingDiv.innerHTML = `
+                <div class="msg-avatar">${agentAvatars[activeAgent]}</div>
+                <div class="msg-content-wrapper">
+                    <div class="msg-header-info">
+                        <span>${agentNames[activeAgent]}</span> • <span>Đang gõ...</span>
+                    </div>
+                    <div class="msg-body typing-bubble">
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                        <span class="typing-dot"></span>
+                    </div>
+                </div>
+            `;
+            list.appendChild(typingDiv);
+            list.scrollTop = list.scrollHeight;
+
+            try {
+                // Call FastAPI Chat endpoint
+                const res = await fetch(`${API_BASE}/api/chat`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: currentUser,
+                        query: query,
+                        active_agent: activeAgent
+                    })
+                });
+                
+                // Remove typing bubble
+                const typing = document.getElementById("typingBubble");
+                if (typing) typing.remove();
+                
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || "Chat request failed");
+                }
+                
+                const data = await res.json();
+                
+                // Display routing node audits in chat
+                const targetNames = { "hr_policies": "HR Policies Agent", "salary_management": "Salary Agent", "system_admin": "System Admin Agent", "unknown": "General Handler" };
+                const routeBadge = data.access_granted 
+                    ? `<span style="color:var(--color-success);font-weight:600;"><i class="fa-solid fa-route"></i> [ROUTER] Đã định tuyến đến: ${targetNames[data.target_agent]}</span>`
+                    : `<span style="color:var(--color-danger);font-weight:600;"><i class="fa-solid fa-ban"></i> [ROUTER] Truy cập bị từ chối!</span>`;
+                addSystemMessage(routeBadge);
+
+                // Render assistant response
+                const assistantDiv = document.createElement("div");
+                assistantDiv.className = "message-bubble assistant";
+                assistantDiv.innerHTML = `
+                    <div class="msg-avatar">${data.target_agent === 'hr_policies' ? 'HR' : (data.target_agent === 'salary_management' ? 'SA' : (data.target_agent === 'system_admin' ? 'SY' : 'AI'))}</div>
+                    <div class="msg-content-wrapper">
+                        <div class="msg-header-info">
+                            <span>${targetNames[data.target_agent]}</span> • <span>Bây giờ</span>
+                        </div>
+                        <div class="msg-body">${formatMarkdown(data.response)}</div>
+                    </div>
+                `;
+                list.appendChild(assistantDiv);
+                list.scrollTop = list.scrollHeight;
+                
+            } catch (err) {
+                // Remove typing bubble
+                const typing = document.getElementById("typingBubble");
+                if (typing) typing.remove();
+                
+                const errDiv = document.createElement("div");
+                errDiv.className = "message-bubble assistant";
+                errDiv.innerHTML = `
+                    <div class="msg-avatar">❌</div>
+                    <div class="msg-content-wrapper">
+                        <div class="msg-header-info">
+                            <span>Hệ thống</span> • <span>Báo lỗi</span>
+                        </div>
+                        <div class="msg-body" style="border-color: rgba(239, 68, 68, 0.3);">
+                            Có lỗi xảy ra khi xử lý yêu cầu của bạn: <code>${err.message}</code>
+                        </div>
+                    </div>
+                `;
+                list.appendChild(errDiv);
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+
+        // Close the glassmorphism preview modal
+        function closeReviewModal() {
+            document.getElementById("studioReviewModal").classList.remove("active");
+        }
+
+        // Call Admin Create Skill Draft API (Pha 1)
+        async function createSkill() {
+            const targetAgent = document.getElementById("studioTargetAgent").value;
+            const skillName = document.getElementById("studioSkillName").value.trim();
+            const skillDesc = document.getElementById("studioSkillDesc").value.trim();
+
+            if (!skillName || !skillDesc) {
+                alert("Vui lòng điền đầy đủ Tên Skill và Mô tả ý tưởng!");
+                return;
+            }
+
+            const btn = document.getElementById("submitSkillBtn");
+            btn.innerHTML = `<span class="spinner"></span> <span>AI đang thiết kế nháp...</span>`;
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/skills/draft`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: currentUser,
+                        agent_id: targetAgent,
+                        name: skillName,
+                        description: skillDesc
+                    })
+                });
+                
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || "Tạo bản nháp thất bại");
+                }
+                
+                const data = await res.json();
+                const skill = data.skill;
+
+                // Điền dữ liệu nháp vào modal review
+                document.getElementById("reviewAgentId").value = targetAgent;
+                document.getElementById("reviewSkillId").value = skill.id;
+                document.getElementById("reviewSkillName").value = skill.name;
+                document.getElementById("reviewSkillType").value = skill.skill_type;
+                document.getElementById("reviewSkillDesc").value = skill.description;
+                document.getElementById("reviewSystemPrompt").value = skill.system_prompt;
+                document.getElementById("reviewSkillKeywords").value = (skill.metadata.keywords || []).join(", ");
+                document.getElementById("reviewSkillExamples").value = (skill.examples || []).join("\n");
+                document.getElementById("reviewSkillMetadata").value = JSON.stringify(skill.metadata || {});
+
+                // Gán quyền vai trò
+                const roles = skill.permission?.required_roles || ["employee", "accountant", "admin"];
+                document.getElementById("roleEmployee").checked = roles.includes("employee");
+                document.getElementById("roleAccountant").checked = roles.includes("accountant");
+                document.getElementById("roleAdmin").checked = roles.includes("admin");
+
+                // Mở Modal
+                document.getElementById("studioReviewModal").classList.add("active");
+                
+            } catch (err) {
+                alert("Lỗi khi thiết kế nháp skill: " + err.message);
+            } finally {
+                btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> <span>Thiết kế & Lưu trữ Skill</span>`;
+                btn.disabled = false;
+            }
+        }
+
+        // Call Admin Publish Skill API (Pha 2: Duyệt xong và Kích hoạt chính thức)
+        async function publishSkill() {
+            const targetAgent = document.getElementById("reviewAgentId").value;
+            const skillId = document.getElementById("reviewSkillId").value;
+            const name = document.getElementById("reviewSkillName").value.trim();
+            const skillType = document.getElementById("reviewSkillType").value;
+            const description = document.getElementById("reviewSkillDesc").value.trim();
+            const systemPrompt = document.getElementById("reviewSystemPrompt").value.trim();
+            
+            // Xử lý vai trò
+            const requiredRoles = [];
+            if (document.getElementById("roleEmployee").checked) requiredRoles.push("employee");
+            if (document.getElementById("roleAccountant").checked) requiredRoles.push("accountant");
+            if (document.getElementById("roleAdmin").checked) requiredRoles.push("admin");
+
+            // Xử lý từ khóa
+            const keywordsInput = document.getElementById("reviewSkillKeywords").value;
+            const keywords = keywordsInput.split(",").map(k => k.trim()).filter(k => k.length > 0);
+
+            // Xử lý ví dụ câu hỏi
+            const examplesInput = document.getElementById("reviewSkillExamples").value;
+            const examples = examplesInput.split("\n").map(e => e.trim()).filter(e => e.length > 0);
+
+            const metadataStr = document.getElementById("reviewSkillMetadata").value;
+            let metadata = {};
+            try {
+                metadata = JSON.parse(metadataStr);
+            } catch (e) {}
+            metadata.keywords = keywords;
+
+            if (!name || !description || !systemPrompt) {
+                alert("Vui lòng không để trống Tên, Mô tả, và System Instructions!");
+                return;
+            }
+
+            const btn = document.getElementById("publishSkillBtn");
+            btn.innerHTML = `<span class="spinner"></span> <span>AI đang xuất bản...</span>`;
+            btn.disabled = true;
+
+            const skillData = {
+                id: skillId,
+                name: name,
+                version: "1.0.0",
+                description: description,
+                skill_type: skillType,
+                parameters: [],
+                system_prompt: systemPrompt,
+                permission: {
+                    required_roles: requiredRoles,
+                    required_departments: [],
+                    max_access_level: 1
+                },
+                examples: examples,
+                metadata: metadata
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/api/skills/publish`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: currentUser,
+                        agent_id: targetAgent,
+                        skill_data: skillData
+                    })
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || "Xuất bản thất bại");
+                }
+
+                // Reset forms chính
+                document.getElementById("studioSkillName").value = "";
+                document.getElementById("studioSkillDesc").value = "";
+
+                // Đóng Modal
+                closeReviewModal();
+
+                // Refresh catalog danh sách kỹ năng hiển thị
+                await renderSkillsCatalog();
+
+                // Success Toast
+                showToast(`Đã lưu tệp JSON và kích hoạt skill [${name}] thành công!`);
+            } catch (err) {
+                alert("Lỗi khi xuất bản skill: " + err.message);
+            } finally {
+                btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> <span>Kích hoạt & Lưu trữ Skill</span>`;
+                btn.disabled = false;
+            }
+        }
+
+        // Delete a skill via FastAPI
+        async function deleteSkill(skillId) {
+            if (!confirm(`Bạn có chắc chắn muốn xóa kỹ năng [${skillId}] không? Hành động này không thể hoàn tác.`)) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/delete_skill?skill_id=${skillId}&user_id=${currentUser}`, {
+                    method: "DELETE"
+                });
+                
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || "Delete skill failed");
+                }
+                
+                showToast("Đã xóa kỹ năng thành công!");
+                // Refresh skills catalog immediately
+                await renderSkillsCatalog();
+                
+            } catch (err) {
+                alert("Lỗi khi xóa skill: " + err.message);
+            }
+        }
+
+        // INITIAL STATE SETUP ON PAGELOAD
+        window.addEventListener("DOMContentLoaded", () => {
+            switchUser();
+        });
+    </script>
+</body>
+</html>

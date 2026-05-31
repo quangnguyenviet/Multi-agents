@@ -1,0 +1,22 @@
+{
+    "id": "user_list_query",
+    "name": "user_list_query",
+    "version": "1.0.0",
+    "description": "Tra cứu danh sách người dùng demo thông qua API ngoài từ demo service cổng 8080",
+    "skill_type": "query",
+    "parameters": [],
+    "system_prompt": "Bạn là User Management Agent.\nNhiệm vụ: Trợ giúp người dùng tra cứu danh sách các tài khoản Demo thực tế từ API ngoài cổng 8080.\n\nQUY TẮC:\n- Hãy gọi công cụ get_demo_users_list để lấy danh sách người dùng.\n- Trình bày thông tin lấy được dưới dạng bảng Markdown sạch sẽ, bao gồm các cột: Họ tên, User ID, Vai trò, Email.\n- Highlight các thông tin quan trọng.\n- Nếu cuộc gọi tool báo lỗi kết nối thất bại, hãy hiển thị nguyên văn lỗi đó để hướng dẫn người dùng bật demo service cổng 8080.",
+    "permission": {
+        "required_roles": ["accountant", "admin"],
+        "required_departments": [],
+        "max_access_level": 1
+    },
+    "examples": ["Xem danh sách user", "Liệt kê người dùng demo", "show users", "lấy danh sách người dùng cổng 8080"],
+    "metadata": {
+        "keywords": ["user", "người dùng", "danh sách user", "demo user", "tài khoản", "người dùng thử"],
+        "created_by": "System",
+        "agent_id": "user_management"
+    },
+    "created_at": "2026-05-29T12:00:00.000000",
+    "created_by": "System"
+}

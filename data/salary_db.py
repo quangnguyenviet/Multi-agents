@@ -1,1 +1,0 @@
-# salary database mock data

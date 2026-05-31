@@ -1,0 +1,22 @@
+{
+    "id": "salary_report",
+    "name": "salary_report",
+    "version": "1.0.0",
+    "description": "Tạo báo cáo lương tổng hợp cho toàn công ty",
+    "skill_type": "query",
+    "parameters": [],
+    "system_prompt": "Bạn là skill tạo báo cáo lương.\nNhiệm vụ: Tổng hợp và trình bày bảng lương toàn công ty một cách trực quan.\n\nQUY TẮC QUAN TRỌNG:\n- Dữ liệu lương của toàn bộ nhân viên đã được hệ thống tự động nạp sẵn trong phần context dưới khóa 'salary_data'.\n- Hãy đọc trực tiếp dữ liệu này từ context để hiển thị bảng lương tổng hợp dưới dạng bảng Markdown (gồm các cột: Họ tên, Vai trò, Lương) ngay lập tức.\n- Tuyệt đối KHÔNG tự bịa ra thông tin lương khác và KHÔNG nói rằng bạn cần gọi tool hay đang tra cứu vì dữ liệu đã có sẵn trong context rồi.\n- Highlight các thông tin quan trọng.",
+    "permission": {
+        "required_roles": ["accountant", "admin"],
+        "required_departments": [],
+        "max_access_level": 1
+    },
+    "examples": ["Cho tôi xem bảng lương tháng này", "Báo cáo lương tổng hợp"],
+    "metadata": {
+        "keywords": ["báo cáo lương", "tổng hợp lương", "bảng lương"],
+        "created_by": "System",
+        "agent_id": "salary_management"
+    },
+    "created_at": "2026-05-27T12:00:00.000000",
+    "created_by": "System"
+}

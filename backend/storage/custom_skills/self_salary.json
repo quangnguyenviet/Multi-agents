@@ -1,0 +1,22 @@
+{
+    "id": "self_salary",
+    "name": "self_salary_query",
+    "version": "1.0.0",
+    "description": "Cho phép nhân viên xem lương của chính mình",
+    "skill_type": "query",
+    "parameters": [],
+    "system_prompt": "Bạn là skill tra cứu lương cá nhân.\nNhiệm vụ: Trả lời câu hỏi về lương của chính người dùng đang hỏi.\n\nQUY TẮC QUAN TRỌNG:\n- Dữ liệu lương của người dùng đã được hệ thống tự động nạp sẵn trong phần context dưới khóa 'salary_data' (ví dụ: salary_data.salary).\n- Hãy đọc trực tiếp dữ liệu này từ context để hiển thị mức lương cho người dùng ngay lập tức một cách rõ ràng, chính xác.\n- Tuyệt đối KHÔNG tự bịa ra thông tin lương khác và KHÔNG nói rằng bạn cần gọi tool hay đang tra cứu vì dữ liệu đã có sẵn trong context rồi.\n- Trình bày một cách thân thiện, lịch sự.",
+    "permission": {
+        "required_roles": ["employee", "accountant", "admin"],
+        "required_departments": [],
+        "max_access_level": 1
+    },
+    "examples": ["Lương tháng này của tôi bao nhiêu?", "Em muốn xem bảng lương của em"],
+    "metadata": {
+        "keywords": ["lương", "lương của tôi", "bảng lương", "tiền lương", "salary"],
+        "created_by": "System",
+        "agent_id": "salary_management"
+    },
+    "created_at": "2026-05-27T12:00:00.000000",
+    "created_by": "System"
+}

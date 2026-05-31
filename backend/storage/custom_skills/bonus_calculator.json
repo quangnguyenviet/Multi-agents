@@ -1,0 +1,35 @@
+{
+    "id": "bonus_calculator",
+    "name": "bonus_calculator",
+    "version": "1.0.0",
+    "description": "Tính thưởng cho nhân viên dựa trên lương và KPI",
+    "skill_type": "transform",
+    "parameters": [
+        {
+            "name": "base_salary",
+            "type": "number",
+            "required": true,
+            "description": "Lương cơ bản"
+        },
+        {
+            "name": "kpi_score",
+            "type": "number",
+            "required": true,
+            "description": "Điểm KPI 0-100"
+        }
+    ],
+    "system_prompt": "\nBạn là skill tính thưởng cho nhân viên.\nCông thức tính thưởng:\n- Thưởng cơ bản = lương_cơ_bản * 0.5 * (kpi_score / 100)\n- Nếu kpi_score >= 90: thưởng thêm 1,000,000 VND\n- Nếu kpi_score >= 120: thưởng thêm 2,000,000 VND\n- Tổng thưởng = thưởng_cơ_bản + thưởng_thêm\n\nHãy trình bày kết quả chi tiết, dễ hiểu.\n",
+    "permission": {
+        "required_roles": ["accountant", "admin"],
+        "required_departments": [],
+        "max_access_level": 1
+    },
+    "examples": ["Tính thưởng cho nhân viên A lương 10tr KPI 95", "Thưởng Tết của tôi là bao nhiêu?"],
+    "metadata": {
+        "keywords": ["thưởng", "bonus", "kpi", "tính thưởng"],
+        "created_by": "System",
+        "agent_id": "salary_management"
+    },
+    "created_at": "2026-05-27T12:00:00.000000",
+    "created_by": "System"
+}
