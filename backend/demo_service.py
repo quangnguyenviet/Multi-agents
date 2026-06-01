@@ -37,7 +37,7 @@ async def welcome():
 async def get_test_users():
     return [
         {"user_id": "demo_001", "name": "Nguyễn Văn Demo", "role": "tester", "email": "demo@evo.com"},
-        {"user_id": "admin_test", "name": "Trần Quản Trị", "role": "admin", "email": "admin.test@evo.com"},
+        {"user_id": "admin_test", "name": "Trần Quản Trị Quang", "role": "admin", "email": "admin.test@evo.com"},
         {"user_id": "guest_001", "name": "Khách Vãng Lai", "role": "guest", "email": "guest@evo.com"}
     ]
 

@@ -16,6 +16,7 @@
 - [x] **[NEW] Chuyển đổi toàn diện sang ReactJS (Vite)**: Hoàn tất porting mã nguồn HTML/JS cũ sang component modular ReactJS trong `frontend/src/App.jsx`.
 - [x] **[NEW] Streamline UI loại bỏ cột hệ thống bên phải**: Gỡ bỏ hoàn toàn panel CPU/RAM và logs bên phải theo yêu cầu của anh để tối ưu 100% diện tích cho Khung chat và các tab quản trị rộng rãi.
 - [x] **[NEW] Unified Build & Hosting**: Thiết lập cơ chế build tĩnh Vite và tích hợp host trực tiếp + fallback an toàn bên trong server FastAPI `server.py`.
+- [x] **[NEW] Di trú từ Groq sang 9Router**: Thay thế toàn bộ cấu hình Groq API bằng 9Router proxy. Đổi `GROQ_API_KEY` → `LLM_API_KEY`, cập nhật `LLM_BASE_URL` về `http://172.31.2.23:20128/v1`, model `evotek_flash`. Cập nhật `settings.py` đọc tất cả biến LLM từ environment.
 
 ## Trạng thái hiện tại
 - **Giao diện**: Hoàn thành ứng dụng ReactJS tuyệt đẹp, mượt mà, hỗ trợ RBAC phân quyền chặt chẽ trên giao diện.

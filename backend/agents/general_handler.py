@@ -32,7 +32,7 @@ def general_handler_node(state: MultiAgentState) -> MultiAgentState:
         
     llm = ChatOpenAI(
         model=settings.LLM_MODEL,
-        api_key=settings.GROQ_API_KEY,
+        api_key=settings.LLM_API_KEY,
         base_url=settings.LLM_BASE_URL,
         temperature=0.5
     )

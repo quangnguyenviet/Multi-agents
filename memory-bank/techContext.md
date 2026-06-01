@@ -3,14 +3,14 @@
 ## Công nghệ sử dụng
 - **Backend Core**: Python 3.10+, FastAPI, Uvicorn.
 - **Orchestration**: LangGraph (StateGraph, conditional edges).
-- **AI Integration**: LangChain (`langchain_openai`), ChatOpenAI (Groq API, model `llama3-70b-8192` / `llama-3.1-8b-instant`).
+- **AI Integration**: LangChain (`langchain_openai`), ChatOpenAI qua **9Router** proxy (endpoint nội bộ `http://172.31.2.23:20128/v1`, model `evotek_flash`). 9Router cung cấp token saving, format translation, và multi-tier fallback giữa các provider.
 - **Frontend Framework**: ReactJS (Vite, HSL CSS variables, Vanilla CSS for maximum flexibility).
 - **Lưu trữ**: SQLite database (`data/company.db`) phục vụ dữ liệu nghiệp vụ, và File-system JSON (`storage/custom_skills/`) cho cấu hình kỹ năng.
 
 ## Môi trường & Khởi chạy
 
 ### 1. File `.env` cấu hình
-Chứa các biến môi trường thiết yếu: `GROQ_API_KEY`, `LLM_BASE_URL` và `LLM_MODEL`.
+Chứa các biến môi trường thiết yếu: `LLM_API_KEY`, `LLM_BASE_URL` (trỏ tới 9Router endpoint) và `LLM_MODEL`.
 
 ### 2. Chạy chế độ Production (Hợp nhất 1 server cổng 8000)
 Vào thư mục `frontend` build code React, sau đó khởi chạy FastAPI:

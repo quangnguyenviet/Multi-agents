@@ -15,7 +15,7 @@ class SkillFactory:
     def __init__(self, llm: Optional[ChatOpenAI] = None):
         self.llm = llm or ChatOpenAI(
             model=settings.LLM_MODEL,
-            api_key=settings.GROQ_API_KEY,
+            api_key=settings.LLM_API_KEY,
             base_url=settings.LLM_BASE_URL,
             temperature=0.3
         )

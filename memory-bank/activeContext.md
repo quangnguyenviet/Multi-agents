@@ -19,6 +19,9 @@ Chúng ta vừa hoàn thành đợt nâng cấp chiến lược: **Chuyển đ�
 4. **💻 Thiết lập Proxy phát triển**:
    - Cấu hình `vite.config.js` proxy cổng 3000 sang backend cổng 8000, hỗ trợ chế độ Development nóng (`npm run dev`) giúp lập trình viên sửa code React cập nhật lập tức lên giao diện (Hot Reloading).
 
+## Hoàn thành gần đây
+- **🔌 Di trú LLM Provider sang 9Router**: Backend không còn phụ thuộc trực tiếp vào Groq API. Toàn bộ LLM config được trỏ về 9Router proxy nội bộ (`http://172.31.2.23:20128/v1`). Biến môi trường `GROQ_API_KEY` đã được đổi thành `LLM_API_KEY` chung, `settings.py` đọc động từ `.env`. 9Router mang lại token saving, format translation và multi-tier fallback.
+
 ## Nhiệm vụ tiếp theo
 - **Tích hợp API Backend**: Thay thế các mock state hiện tại bằng các hàm gọi `fetch()` gọi API thực tế tới FastAPI để lưu "Lưu Prompt", "Khởi tạo Agent", "Xuất bản Skill" trực tiếp xuống cơ sở dữ liệu SQLite và ổ đĩa của Graph.
 - **Xác thực JWT**: Nâng cấp phân quyền từ Session-based tạm thời sang Token JWT bảo mật.
