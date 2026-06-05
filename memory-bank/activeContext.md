@@ -1,44 +1,53 @@
 # Active Context
 
 ## Trọng tâm phát triển hiện tại
-Đã hoàn thành đơn giản hóa kiến trúc: **Gộp toàn bộ agent nodes thành 1 LLM node duy nhất** + **Loại bỏ RBAC tạm thời** + **Dọn dẹp frontend không còn chọn/quản lý agents**.
+Đã hoàn thành 3 tính năng lớn trong các session gần đây:
 
-1. **🔀 Đơn giản hóa LangGraph Workflow** ✅:
-   - Topology mới: `START → llm → END` (từ 7 nodes xuống 2 nodes).
-   - Xóa 6 file node cũ: `hr_agent.py`, `salary_agent.py`, `admin_agent.py`, `user_agent.py`, `router.py`, `general_handler.py`.
-   - Tạo `backend/agents/llm_node.py`: gọi thẳng ChatOpenAI (9Router), không skill, không RBAC.
-   - `MultiAgentState` rút gọn còn 4 field: `user_id`, `user_name`, `query`, `agent_response`.
+1. **🛠️ Tool Node LangGraph** ✅:
+   - Topology: `START → llm ──[tool_calls?]──→ tools → llm → END`
+   - Sử dụng `langgraph.prebuilt.ToolNode` + `tools_condition`
+   - 7 tools: `get_company_info`, `get_current_datetime`, `calculate`, `get_company_employee_list`, `get_demo_users_list`, `read_cv_file`, `generate_cv_file`
 
-2. **🖥️ Đơn giản hóa Frontend** ✅:
-   - Bỏ dropdown chọn agent trong chat header.
-   - Bỏ route và sidebar link "Quản lý Agents".
-   - Chat gửi `POST /api/chat` chỉ với `{user_id, query}`, nhận về `{response}`.
-   - `ChatWorkspace.jsx`: header tĩnh "AI Assistant".
-   - `ChatInputBar.jsx`: 3 generic chips thay vì chips theo từng agent.
-   - Giữ lại: Quản lý Kỹ năng, Quản lý Tools, CV Processor.
+2. **📄 CV Processor tích hợp vào Chat** ✅:
+   - 2 tools: `read_cv_file(file_id)` + `generate_cv_file(cv_json)`
+   - `/api/chat` đổi từ JSON sang `multipart/form-data` (hỗ trợ file upload optional)
+   - Frontend: nút 📎 trong chat input, CV preview card (iframe + Print) trong message bubble
+   - routes.py: parse cv_id từ ToolMessage (quét ngược, `.split()[0]`)
 
-## Hoàn thành gần đây
-- **🔀 Single LLM Node**: `backend/agents/llm_node.py` — ChatOpenAI (9Router `evotek_flash`, temp 0.7), system prompt chung "trợ lý AI nội bộ thân thiện".
-- **📦 Dọn dẹp backend**: Xóa 6 agent node files không còn dùng. Giữ `base_agent.py` + `instances.py` vì `routes.py` vẫn dùng skill enable/disable.
-- **🎨 Dọn dẹp frontend**: Bỏ `AgentManager.jsx`, `AgentModal.jsx` khỏi render tree. Bỏ `activeAgent`/`agents` state khỏi App.jsx.
+3. **🔗 Skill → LLM Node Integration** ✅:
+   - `llm_node.py` có `_build_system_prompt()` — load skills từ `skill_registry` có `metadata.agent_id == "llm_node"`
+   - Tạo `storage/custom_skills/cv_processor.json` với `agent_id: "llm_node"` để hướng dẫn LLM gọi đúng flow CV
+   - Convention: skill nào có `agent_id: "llm_node"` → system_prompt của nó được inject vào LangGraph
+   - Thêm hành vi mới cho LLM chỉ cần tạo file JSON skill — không cần sửa code
 
 ## Cấu trúc backend/agents/ hiện tại
 ```
 backend/agents/
-├── workflow.py         ← START → llm → END
-├── workflow_state.py   ← 4 fields: user_id, user_name, query, agent_response
-├── llm_node.py         ← single LLM node (ChatOpenAI)
+├── workflow.py         ← START → llm → tools → llm → END
+├── workflow_state.py   ← 5 fields: user_id, user_name, query, agent_response, messages
+├── llm_node.py         ← LLM bind 7 tools, _build_system_prompt() load từ skill_registry
 ├── base_agent.py       ← còn dùng bởi instances.py
-├── instances.py        ← skill_registry + 4 agent instances (cho skill management)
+├── instances.py        ← skill_registry + 4 agent instances (skill management)
 └── __init__.py
 ```
 
+## Cấu trúc backend/tools/ hiện tại
+```
+backend/tools/
+├── company_tools.py    ← get_company_info, get_current_datetime, calculate,
+│                          get_company_employee_list, get_demo_users_list
+└── cv_tools.py         ← read_cv_file, generate_cv_file
+                           _pdf_store, _cv_html_store (in-memory dict)
+```
+
 ## Lưu ý kỹ thuật quan trọng
-- `instances.py` và `base_agent.py` vẫn cần giữ — `routes.py` dùng chúng để enable/disable skill trên từng agent instance khi publish/delete skill.
-- `cv_agent.py` phải đặt ở `backend/` root, **không** trong `backend/agents/` — tránh UnicodeEncodeError Windows cp1252.
-- Prompt template CV dùng `.replace()` thay vì `.format()` để tránh `KeyError` với `{}` trong JSON schema.
+- `/api/chat` dùng `Form(...)` + `File(None)` — **không còn là JSON endpoint**. Frontend phải gửi FormData (không set Content-Type header)
+- `_pdf_store` / `_cv_html_store` là in-memory dict — đủ cho dev server single-process. Production cần Redis/tmp files
+- `cv_agent.py` import `from cv_agent import extract_cv_data` — `cv_agent.py` phải ở `backend/` root (tránh UnicodeEncodeError Windows cp1252)
+- `_build_system_prompt()` gọi mỗi request (lần đầu vào llm_node) — skill mới tạo xong có hiệu lực ngay không cần restart
+- Skills cho llm_node phải có `metadata.agent_id == "llm_node"` — các skill khác (`hr_policies`, `salary_management`...) không bị inject vào LangGraph
 
 ## Nhiệm vụ tiếp theo
-- **Xác thực JWT**: Nâng cấp phân quyền từ `user_id` query param hiện tại sang Token JWT bảo mật (`Authorization: Bearer <token>`).
-- **Cải thiện UI/UX**: Loading skeletons, error boundaries.
-- **Testing & Error Handling**: Edge cases (network failure, LLM timeout).
+- **Xác thực JWT**: Nâng cấp phân quyền từ `user_id` form param hiện tại sang Token JWT bảo mật
+- **CV tool enhancement**: LLM đang pass toàn bộ JSON lớn vào `generate_cv_file` — có thể tối ưu để LLM chỉ chỉnh sửa phần cụ thể
+- **Cleanup in-memory store**: Thêm TTL/auto-cleanup cho `_cv_html_store` để tránh memory leak lâu dài

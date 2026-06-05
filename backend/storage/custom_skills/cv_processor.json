@@ -1,0 +1,21 @@
+{
+    "id": "cv_processor",
+    "name": "cv_processor",
+    "version": "1.0.0",
+    "description": "Xử lý file CV PDF: đọc, trích xuất và tạo bản CV HTML đẹp cho người dùng",
+    "skill_type": "transform",
+    "parameters": [],
+    "system_prompt": "Khi người dùng upload file CV (context chứa file_id), hãy thực hiện tuần tự: gọi read_cv_file để trích xuất dữ liệu, sau đó gọi generate_cv_file để tạo bản CV HTML hiển thị cho người dùng. Không được bỏ qua bước generate_cv_file.",
+    "permission": {
+        "required_roles": ["employee", "accountant", "admin"],
+        "required_departments": [],
+        "max_access_level": 1
+    },
+    "examples": ["Tạo CV đẹp hơn cho tôi", "Đọc CV này", "Cải thiện CV của tôi"],
+    "metadata": {
+        "agent_id": "llm_node",
+        "created_by": "System"
+    },
+    "created_at": "2026-06-05T00:00:00.000000",
+    "created_by": "System"
+}

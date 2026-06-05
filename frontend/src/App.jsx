@@ -271,14 +271,14 @@ function App() {
   };
 
   /* SEND CHAT MESSAGE & EXECUTE REAL-TIME LANGGRAPH WORKFLOW */
-  const handleSendMessage = async (textToSend) => {
+  const handleSendMessage = async (textToSend, file = null) => {
     const text = textToSend.trim();
-    if (!text) return;
+    if (!text && !file) return;
 
-    // Append User message locally
+    const displayText = file ? `${text || "Tạo CV mới"} 📄 ${file.name}` : text;
     const userMsg = {
       role: "user",
-      text: text,
+      text: displayText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setChatMessages(prev => [...prev, userMsg]);
@@ -286,11 +286,13 @@ function App() {
     setIsTyping(true);
 
     try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: currentUser.id, query: text })
-      });
+      const formData = new FormData();
+      formData.append('user_id', currentUser.id);
+      formData.append('query', text || "Tạo CV mới cho tôi");
+      if (file) formData.append('file', file);
+
+      // Không set Content-Type — browser tự set multipart boundary
+      const res = await fetch('/api/chat', { method: 'POST', body: formData });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Chất lượng kết nối kém!");
@@ -300,7 +302,8 @@ function App() {
         agentName: "AI Assistant",
         avatarAbbr: "AI",
         text: data.response,
-        skillTag: "LangGraph Engine",
+        cvHtml: data.cv_html || null,
+        skillTag: data.cv_html ? "CV Generator" : "LangGraph Engine",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -308,7 +311,7 @@ function App() {
       addLog(`Received response from LLM successfully`, "success");
     } catch (err) {
       addLog(`Chat Error: ${err.message}`, "error");
-      
+
       const errMsg = {
         role: "assistant",
         agentName: "Error Handler Node",

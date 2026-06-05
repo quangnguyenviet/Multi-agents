@@ -787,6 +787,79 @@ body {
     box-shadow: 0 0 12px var(--color-primary-glow), 0 0 12px var(--color-accent-glow);
 }
 
+.chat-attach-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 6px;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+.chat-attach-btn:hover {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.attached-file-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 8px;
+    padding: 6px 12px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.remove-file-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0 2px;
+    line-height: 1;
+}
+.remove-file-btn:hover { color: #f87171; }
+
+.cv-preview-card {
+    margin-top: 12px;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 700px;
+}
+.cv-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(99, 102, 241, 0.1);
+    border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.cv-print-btn {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.cv-print-btn:hover { opacity: 0.85; }
+
 /* -----------------------------------------
    4B. TAB 2: AGENT MANAGER (ADMIN ONLY)
 ----------------------------------------- */

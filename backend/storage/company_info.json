@@ -1,0 +1,25 @@
+{
+  "name": "Evotek AI",
+  "short_name": "Evotek",
+  "founded": "2021",
+  "industry": "Công nghệ Trí tuệ Nhân tạo",
+  "headquarters": "Tầng 8, 123 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh",
+  "phone": "028 1234 5678",
+  "email": "contact@evotek.ai",
+  "website": "https://evotek.ai",
+  "employee_count": 4,
+  "departments": [
+    { "name": "Kỹ thuật & AI", "head": "Nguyen Admin", "size": 2 },
+    { "name": "Tài chính & Kế toán", "head": "Le Van C", "size": 1 },
+    { "name": "Vận hành", "head": "Tran Thi B", "size": 1 }
+  ],
+  "working_hours": "Thứ Hai – Thứ Sáu, 8:30 – 17:30",
+  "benefits": [
+    "Bảo hiểm sức khỏe cao cấp",
+    "13 tháng lương",
+    "Thưởng KPI hàng quý",
+    "Học phí đào tạo AI hàng năm",
+    "Làm việc hybrid 2 ngày/tuần tại nhà"
+  ],
+  "mission": "Ứng dụng AI để tự động hóa và nâng cao hiệu quả vận hành doanh nghiệp Việt Nam."
+}

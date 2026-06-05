@@ -1,15 +1,19 @@
 import os
+import uuid
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query, Form, File, UploadFile
+from langchain_core.messages import ToolMessage
 from data import database as db
 from config.settings import settings
 from skills.base import Skill, SkillType, Parameter, Permission
+from tools.cv_tools import _pdf_store, _cv_html_store
 
 # Import storage modules
 from storage import agent_store, tool_store
 
 # Import Pydantic schemas
-from .models import ChatRequest, CreateSkillRequest, PublishSkillRequest
+from .models import CreateSkillRequest, PublishSkillRequest
 from .models import AgentPromptRequest, CreateAgentRequest, CreateToolRequest, UpdateToolRequest
 
 # Import Agent instances and chatbot graph
@@ -74,15 +78,45 @@ async def get_skills(agent_id: str = Query(...), user_id: str = Query(...)):
 
 # API chat with Multi-Agent system
 @router.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(
+    user_id: str = Form(...),
+    query: str = Form(...),
+    file: Optional[UploadFile] = File(None),
+):
     try:
+        full_query = query
+
+        file_id = None
+        if file:
+            file_id = uuid.uuid4().hex[:8]
+            _pdf_store[file_id] = await file.read()
+            full_query = (
+                f"{query}\n\n"
+                f"[Người dùng đã upload file: {file.filename}. file_id: {file_id}. "
+                f"Hãy dùng tool phù hợp để xử lý file này.]"
+            )
+
         result = await chatbot.ainvoke({
-            "user_id": req.user_id,
-            "user_name": req.user_id,
-            "query": req.query,
+            "user_id": user_id,
+            "user_name": user_id,
+            "query": full_query,
             "agent_response": ""
         })
-        return {"response": result.get("agent_response", "")}
+
+        # Tìm cv_id từ ToolMessage của generate_cv_file (quét ngược để lấy cái mới nhất)
+        cv_html = None
+        for msg in reversed(result.get("messages", [])):
+            if isinstance(msg, ToolMessage) and "cv_id:" in (msg.content or ""):
+                raw = msg.content.split("cv_id:")[-1].strip()
+                cv_id = raw.split()[0]  # lấy token đầu tiên, bỏ text thừa phía sau
+                cv_html = _cv_html_store.get(cv_id)
+                if cv_html:
+                    break
+
+        if file_id:
+            _pdf_store.pop(file_id, None)
+
+        return {"response": result.get("agent_response", ""), "cv_html": cv_html}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi chatbot: {e}")
 

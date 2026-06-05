@@ -18,6 +18,14 @@ const formatMarkdown = (text) => {
   return html;
 };
 
+const printCV = (html) => {
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  w.print();
+};
+
 function MessageItem({ msg }) {
   const isUser = msg.role === 'user';
   const avatarText = isUser ? 'ME' : (msg.avatarAbbr || 'AG');
@@ -40,6 +48,23 @@ function MessageItem({ msg }) {
           {(msg.routeInfoBadge || msg.skillTag) ? <br /> : null}
           <div dangerouslySetInnerHTML={{ __html: formatMarkdown(msg.text) }} />
         </div>
+
+        {msg.cvHtml && (
+          <div className="cv-preview-card">
+            <div className="cv-preview-header">
+              <span><i className="fa-solid fa-file-lines" style={{ marginRight: '6px' }}></i>CV đã tạo</span>
+              <button className="cv-print-btn" onClick={() => printCV(msg.cvHtml)}>
+                <i className="fa-solid fa-print" style={{ marginRight: '6px' }}></i>In / Xuất PDF
+              </button>
+            </div>
+            <iframe
+              srcDoc={msg.cvHtml}
+              title="CV Preview"
+              style={{ width: '100%', height: '520px', border: 'none', borderRadius: '0 0 8px 8px', background: '#fff' }}
+            />
+          </div>
+        )}
+
         <div className="msg-meta">
           <span>{isUser ? 'Người dùng' : msg.agentName}</span> • <span>{msg.timestamp}</span>
         </div>
