@@ -1,39 +1,44 @@
 # Active Context
 
 ## Trọng tâm phát triển hiện tại
-Chúng ta đã hoàn thành đợt nâng cấp chiến lược: **Chuyển đổi toàn diện Dashboard SPA sang kiến trúc ReactJS (Vite)** + **Di trú LLM sang 9Router** + **Tích hợp API Backend toàn diện**.
+Đã hoàn thành đơn giản hóa kiến trúc: **Gộp toàn bộ agent nodes thành 1 LLM node duy nhất** + **Loại bỏ RBAC tạm thời** + **Dọn dẹp frontend không còn chọn/quản lý agents**.
 
-1. **🚀 Di trú giao diện sang ReactJS (Vite)** ✅:
-   - Khởi tạo thư mục dự án frontend React chuyên biệt (`frontend/`).
-   - Port toàn bộ hệ thống CSS Variables, Reset Styles và Glassmorphism sang `frontend/src/index.css`.
-   - Viết component React tập trung [App.jsx](file:///d:/evo/chatbot/demo_langGraph/frontend/src/App.jsx) để quản lý trơn tru mọi trạng thái dữ liệu (Agents, Skills, Tools, Chat messages).
+1. **🔀 Đơn giản hóa LangGraph Workflow** ✅:
+   - Topology mới: `START → llm → END` (từ 7 nodes xuống 2 nodes).
+   - Xóa 6 file node cũ: `hr_agent.py`, `salary_agent.py`, `admin_agent.py`, `user_agent.py`, `router.py`, `general_handler.py`.
+   - Tạo `backend/agents/llm_node.py`: gọi thẳng ChatOpenAI (9Router), không skill, không RBAC.
+   - `MultiAgentState` rút gọn còn 4 field: `user_id`, `user_name`, `query`, `agent_response`.
 
-2. **📐 Tối ưu hóa layout 100% Full-Bleed (Lược bỏ Right Panel)** ✅:
-   - **Cột trạng thái hệ thống và log bên phải đã được loại bỏ hoàn toàn** khỏi mã nguồn React UI.
-   - Không gian chính của Khung Chat và các Tab quản trị (Agents, Kỹ năng, Tools) được tự động kéo giãn bao trọn 100% chiều rộng màn hình.
-
-3. **📦 Đóng gói Production & Unified Web Server** ✅:
-   - Vite build ra `frontend/dist/`, FastAPI tự động phục vụ bản build React tại `/` với fallback an toàn.
-
-4. **💻 Thiết lập Proxy phát triển** ✅:
-   - Cấu hình `vite.config.js` proxy cổng 3000 → backend cổng 8000, hỗ trợ Hot Reloading.
-
-5. **🔌 Di trú LLM Provider sang 9Router** ✅:
-   - Backend không còn phụ thuộc vào Groq API. Toàn bộ LLM config trỏ về 9Router proxy (`http://172.31.2.23:20128/v1`), model `evotek_flash`.
-
-6. **🔗 Tích hợp API Backend toàn diện** ✅:
-   - Toàn bộ App.jsx đã gọi `fetch()` API thực tế đến FastAPI: Chat (`POST /api/chat`), Agents CRUD, Skills (load/draft/publish/delete), Tools (CRUD + toggle), Login (RBAC). Không còn mock state nào.
+2. **🖥️ Đơn giản hóa Frontend** ✅:
+   - Bỏ dropdown chọn agent trong chat header.
+   - Bỏ route và sidebar link "Quản lý Agents".
+   - Chat gửi `POST /api/chat` chỉ với `{user_id, query}`, nhận về `{response}`.
+   - `ChatWorkspace.jsx`: header tĩnh "AI Assistant".
+   - `ChatInputBar.jsx`: 3 generic chips thay vì chips theo từng agent.
+   - Giữ lại: Quản lý Kỹ năng, Quản lý Tools, CV Processor.
 
 ## Hoàn thành gần đây
-- **🔌 Di trú LLM Provider sang 9Router**: Backend không còn phụ thuộc trực tiếp vào Groq API. Toàn bộ LLM config được trỏ về 9Router proxy nội bộ (`http://172.31.2.23:20128/v1`). Biến môi trường `GROQ_API_KEY` đã được đổi thành `LLM_API_KEY` chung, `settings.py` đọc động từ `.env`.
-- **🔗 Tích hợp API Backend**: Đã thay thế hoàn toàn mock state — `App.jsx` hiện gọi `fetch()` thực tế đến mọi endpoint FastAPI (Chat, Agents, Skills, Tools). Dữ liệu được lưu và đọc trực tiếp từ SQLite + file-system JSON.
-- **📄 CV Processor**: Tính năng chuyển đổi CV PDF sang mẫu CV mới. Flow: upload PDF → pdfplumber extract text → LLM (9Router) trả JSON có cấu trúc → UI cho chỉnh sửa → Jinja2 render HTML template → browser print ra PDF. Accessible với mọi user đã đăng nhập (không giới hạn role). Các file chính: `backend/cv_agent.py`, `backend/api/cv_routes.py`, `backend/templates/cv_template.html`, `frontend/src/components/cv/CVProcessor.jsx`.
+- **🔀 Single LLM Node**: `backend/agents/llm_node.py` — ChatOpenAI (9Router `evotek_flash`, temp 0.7), system prompt chung "trợ lý AI nội bộ thân thiện".
+- **📦 Dọn dẹp backend**: Xóa 6 agent node files không còn dùng. Giữ `base_agent.py` + `instances.py` vì `routes.py` vẫn dùng skill enable/disable.
+- **🎨 Dọn dẹp frontend**: Bỏ `AgentManager.jsx`, `AgentModal.jsx` khỏi render tree. Bỏ `activeAgent`/`agents` state khỏi App.jsx.
 
-## Lưu ý kỹ thuật quan trọng (CV Processor)
-- `cv_agent.py` phải đặt ở `backend/` root, **không** trong `backend/agents/` — nếu đặt trong `agents/` sẽ kéo theo `agents/__init__.py` → `instances.py` → `skills/loader.py` → `print(emoji)` → UnicodeEncodeError trên Windows cp1252.
-- Prompt template chứa JSON schema có `{` `}` → dùng `.replace("{cv_text}", ...)` thay vì `.format()` để tránh `KeyError`.
+## Cấu trúc backend/agents/ hiện tại
+```
+backend/agents/
+├── workflow.py         ← START → llm → END
+├── workflow_state.py   ← 4 fields: user_id, user_name, query, agent_response
+├── llm_node.py         ← single LLM node (ChatOpenAI)
+├── base_agent.py       ← còn dùng bởi instances.py
+├── instances.py        ← skill_registry + 4 agent instances (cho skill management)
+└── __init__.py
+```
+
+## Lưu ý kỹ thuật quan trọng
+- `instances.py` và `base_agent.py` vẫn cần giữ — `routes.py` dùng chúng để enable/disable skill trên từng agent instance khi publish/delete skill.
+- `cv_agent.py` phải đặt ở `backend/` root, **không** trong `backend/agents/` — tránh UnicodeEncodeError Windows cp1252.
+- Prompt template CV dùng `.replace()` thay vì `.format()` để tránh `KeyError` với `{}` trong JSON schema.
 
 ## Nhiệm vụ tiếp theo
-- **Xác thực JWT**: Nâng cấp phân quyền từ cơ chế `user_id` query param hiện tại sang Token JWT bảo mật, tích hợp vào header `Authorization: Bearer <token>` cho mọi request API.
-- **Cải thiện UI/UX Admin**: Tinh chỉnh trải nghiệm Skill Studio (HITL review flow), thêm loading skeletons, error boundaries.
-- **Testing & Error Handling**: Bổ sung error handling toàn diện hơn cho các edge case (network failure, LLM timeout, etc).
+- **Xác thực JWT**: Nâng cấp phân quyền từ `user_id` query param hiện tại sang Token JWT bảo mật (`Authorization: Bearer <token>`).
+- **Cải thiện UI/UX**: Loading skeletons, error boundaries.
+- **Testing & Error Handling**: Edge cases (network failure, LLM timeout).

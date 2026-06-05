@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 
-function Sidebar({ currentUser, agentsCount, skillsCount, toolsCount, handleLogout }) {
+function Sidebar({ currentUser, skillsCount, toolsCount, handleLogout }) {
   return (
     <div className="sidebar">
       <div className="brand-header">
@@ -39,27 +39,18 @@ function Sidebar({ currentUser, agentsCount, skillsCount, toolsCount, handleLogo
         {currentUser.role === 'admin' && (
           <>
             <span className="nav-section-title" style={{ marginTop: '16px' }}>Thiết đặt Quản trị</span>
-            
-            <NavLink 
-              to="/admin/agents" 
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <i className="fa-solid fa-robot"></i>
-              <span>Quản lý Agents</span>
-              <span className="nav-item-badge">{agentsCount}</span>
-            </NavLink>
-            
-            <NavLink 
-              to="/admin/skills" 
+
+            <NavLink
+              to="/admin/skills"
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <i className="fa-solid fa-wand-magic-sparkles"></i>
               <span>Quản lý Kỹ năng</span>
               <span className="nav-item-badge">{skillsCount}</span>
             </NavLink>
-            
-            <NavLink 
-              to="/admin/tools" 
+
+            <NavLink
+              to="/admin/tools"
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <i className="fa-solid fa-screwdriver-wrench"></i>

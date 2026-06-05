@@ -4,7 +4,7 @@ from typing import Optional
 class ChatRequest(BaseModel):
     user_id: str
     query: str
-    active_agent: str
+    active_agent: Optional[str] = None
 
 class CreateSkillRequest(BaseModel):
     user_id: str

@@ -75,32 +75,14 @@ async def get_skills(agent_id: str = Query(...), user_id: str = Query(...)):
 # API chat with Multi-Agent system
 @router.post("/chat")
 async def chat(req: ChatRequest):
-    user_info = db.get_user_info(req.user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    role = user_info["role"]
-    name = user_info["name"]
-    
     try:
-        # Run compiled LangGraph
         result = await chatbot.ainvoke({
             "user_id": req.user_id,
-            "user_role": role,
-            "user_name": name,
+            "user_name": req.user_id,
             "query": req.query,
-            "target_agent": req.active_agent,
-            "access_granted": False,
             "agent_response": ""
         })
-        
-        target_agent = result.get("target_agent", "unknown")
-        access_granted = result.get("access_granted", False)
-        
-        return {
-            "response": result.get("agent_response", ""),
-            "target_agent": target_agent,
-            "access_granted": access_granted
-        }
+        return {"response": result.get("agent_response", "")}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi chatbot: {e}")
 

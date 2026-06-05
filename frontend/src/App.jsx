@@ -7,10 +7,8 @@ import Toast from './components/common/Toast';
 import Sidebar from './components/layout/Sidebar';
 import LoginScreen from './components/login/LoginScreen';
 import ChatWorkspace from './components/chat/ChatWorkspace';
-import AgentManager from './components/admin/AgentManager';
 import SkillManager from './components/admin/SkillManager';
 import ToolRegistry from './components/admin/ToolRegistry';
-import AgentModal from './components/modals/AgentModal';
 import ToolModal from './components/modals/ToolModal';
 import SkillDraftModal from './components/modals/SkillDraftModal';
 import CVProcessor from './components/cv/CVProcessor';
@@ -21,19 +19,16 @@ function App() {
 
   /* GLOBAL STATES */
   const [currentUser, setCurrentUser] = useState(null); // { id, name, role, avatar }
-  const [activeAgent, setActiveAgent] = useState("auto_route");
 
   /* DYNAMIC REGISTRIES */
-  const [agents, setAgents] = useState({});
   const [skills, setSkills] = useState([]);
-  const [tools, setTools] = useState([]); // Now fetched from backend
+  const [tools, setTools] = useState([]);
 
   /* CHAT STATES */
   const [chatMessages, setChatMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
 
   /* MODALS STATES */
-  const [agentModalOpen, setAgentModalOpen] = useState(false);
   const [toolModalOpen, setToolModalOpen] = useState(false);
   const [skillDraft, setSkillDraft] = useState(null); // Human-in-the-loop review state
 
@@ -67,117 +62,23 @@ function App() {
     addLog("Multi-Agent LangGraph runtime compiled successfully.", "info");
   }, []);
 
-  /* SYNC INITIAL GREETINGS WHEN SWITCHING ACTIVE AGENT */
-  useEffect(() => {
-    if (!currentUser) return;
-    const agent = agents[activeAgent];
-    if (agent) {
-      setChatMessages([
-        {
-          role: "assistant",
-          agentName: agent.name,
-          text: agent.welcome || "Xin chào! Tôi sẵn sàng hỗ trợ các câu hỏi của bạn.",
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-      ]);
-      addLog(`Chat workspace switched active Agent target to: ${activeAgent}`, "info");
-    }
-  }, [activeAgent, currentUser, agents]);
-
-  /* DYNAMIC SKILLS SYNC WHEN CHANGING ACTIVE AGENT */
-  useEffect(() => {
-    if (!currentUser || activeAgent === 'auto_route') {
-      setSkills([]);
-      return;
-    }
-
-    const fetchAgentSkills = async () => {
-      try {
-        addLog(`Fetching active skills for Agent: ${activeAgent} via API...`, "info");
-        const res = await fetch(`/api/skills?agent_id=${activeAgent}&user_id=${currentUser.id}`);
-        if (!res.ok) {
-          throw new Error(`Failed to load skills: ${res.statusText}`);
-        }
-        const data = await res.json();
-        // Backend returns skills as a flat list
-        const formattedSkills = data.map(s => ({
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          agent: activeAgent,
-          category: "Live Agent Skill",
-          active: true
-        }));
-        setSkills(formattedSkills);
-        addLog(`Loaded ${data.length} skills successfully from backend.`, "success");
-      } catch (err) {
-        addLog(`Error fetching skills: ${err.message}`, "error");
-      }
-    };
-
-    fetchAgentSkills();
-  }, [activeAgent, currentUser]);
-
-  /* QUICK LOGIN HANDLER (CONNECTS TO BACKEND AGENTS & PRIVILEGES) */
+  /* QUICK LOGIN HANDLER */
   const handleQuickLogin = async (userId) => {
     try {
-      addLog(`Initiating secure authentication handshake for User ID: ${userId}...`, "info");
+      addLog(`Authenticating User ID: ${userId}...`, "info");
 
-      // 1. Fetch agents (with RBAC)
       const res = await fetch(`/api/agents?user_id=${userId}`);
-      if (!res.ok) {
-        throw new Error("Không thể kết nối đến máy chủ backend!");
-      }
+      if (!res.ok) throw new Error("Không thể kết nối đến máy chủ backend!");
       const data = await res.json();
 
-      const loggedUser = {
+      setCurrentUser({
         id: data.user_id,
         name: data.name,
         role: data.role,
         avatar: data.name.split(" ").map(w => w[0]).join("").toUpperCase().substring(0, 2)
-      };
+      });
 
-      setCurrentUser(loggedUser);
-
-      // 2. Fetch agent configs (with welcome, system_prompt) for all roles
-      try {
-        const configRes = await fetch(`/api/agents/config?user_id=${userId}`);
-        if (configRes.ok) {
-          const configData = await configRes.json();
-          // Build agents dict from config data
-          const fetchedAgents = {};
-          for (const [key, cfg] of Object.entries(configData)) {
-            fetchedAgents[key] = {
-              name: cfg.name,
-              icon: cfg.icon,
-              description: cfg.description,
-              welcome: cfg.welcome || "",
-              system_prompt: cfg.system_prompt || "",
-              is_allowed: key !== "auto_route",
-              is_builtin: cfg.is_builtin
-            };
-          }
-          setAgents(fetchedAgents);
-          addLog(`Loaded ${Object.keys(fetchedAgents).length} agents from backend config.`, "success");
-        }
-      } catch (cfgErr) {
-        // Fallback: build agents from the RBAC response (includes welcome now)
-        addLog(`Agent config fetch unavailable, using basic agent list.`, "warning");
-        const fetchedAgents = {};
-        data.agents.forEach(a => {
-          fetchedAgents[a.id] = {
-            name: a.name,
-            icon: a.icon,
-            description: a.description,
-            welcome: a.welcome || "",
-            system_prompt: "",
-            is_allowed: a.is_allowed
-          };
-        });
-        setAgents(fetchedAgents);
-      }
-
-      // 3. Fetch tools from backend
+      // Fetch tools
       try {
         const toolsRes = await fetch("/api/tools");
         if (toolsRes.ok) {
@@ -189,7 +90,7 @@ function App() {
         addLog(`Tool fetch failed: ${toolsErr.message}`, "warning");
       }
 
-      addLog(`Secure login completed! User role: ${data.role.toUpperCase()}`, "success");
+      addLog(`Login completed! Role: ${data.role.toUpperCase()}`, "success");
       triggerToast(`Đăng nhập thành công với vai trò ${data.role.toUpperCase()}!`);
     } catch (err) {
       addLog(`Login Failed: ${err.message}`, "error");
@@ -200,86 +101,11 @@ function App() {
   /* LOGOUT HANDLER */
   const handleLogout = () => {
     setCurrentUser(null);
-    setActiveAgent("auto_route");
-    setAgents({});
     setChatMessages([]);
     setSkills([]);
     setTools([]);
     addLog(`User logged out from session`, "warning");
     navigate('/login');
-  };
-
-  /* SAVE SYSTEM PROMPT VIA BACKEND API */
-  const saveSystemPrompt = async (key, text) => {
-    if (!text.trim()) {
-      alert("Prompt không được để trống!");
-      return;
-    }
-    try {
-      addLog(`Saving system prompt for Agent [${key}] to backend...`, "info");
-      const res = await fetch(`/api/agents/${key}/prompt`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: currentUser.id, system_prompt: text })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to save prompt");
-      }
-      setAgents(prev => ({
-        ...prev,
-        [key]: { ...prev[key], system_prompt: text }
-      }));
-      addLog(`Successfully saved system prompt for Agent [${key}]`, "success");
-      triggerToast(`Đã cập nhật prompt thành công cho ${agents[key]?.name}!`);
-    } catch (err) {
-      addLog(`Error saving prompt: ${err.message}`, "error");
-      alert(`Lỗi lưu prompt: ${err.message}`);
-    }
-  };
-
-  /* CREATE DYNAMIC AGENT VIA BACKEND API */
-  const handleCreateAgent = async (agentData) => {
-    const { id, name, icon, description, welcome, system_prompt } = agentData;
-    const cleanId = id.trim().toLowerCase().replace(/\s+/g, '_');
-    try {
-      addLog(`Creating agent [${name}] (ID: ${cleanId}) via API...`, "info");
-      const res = await fetch('/api/agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: currentUser.id,
-          id: cleanId,
-          name,
-          icon,
-          description,
-          welcome,
-          system_prompt
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to create agent");
-      }
-      const created = data.agent;
-      setAgents(prev => ({
-        ...prev,
-        [cleanId]: {
-          name: created.name,
-          icon: created.icon,
-          description: created.description,
-          welcome: created.welcome,
-          system_prompt: created.system_prompt || "",
-          is_allowed: true,
-          is_builtin: false
-        }
-      }));
-      addLog(`CREATED AGENT: Registered [${name}] (ID: ${cleanId}) to backend.`, "success");
-      triggerToast(`Đã tạo và kích hoạt thành công Agent: ${name}!`);
-    } catch (err) {
-      addLog(`Error creating agent: ${err.message}`, "error");
-      alert(`Lỗi tạo agent: ${err.message}`);
-    }
   };
 
   /* TOGGLE TOOL ACTIVE STATUS VIA BACKEND API */
@@ -409,8 +235,8 @@ function App() {
     if (!skillDraft) return;
     try {
       addLog(`Publishing dynamic skill to database and disk configurations...`, "info");
-      const targetAgentId = skillDraft.metadata?.agent_id || activeAgent;
-      
+      const targetAgentId = skillDraft.metadata?.agent_id || 'default';
+
       const res = await fetch('/api/skills/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -460,55 +286,26 @@ function App() {
     setIsTyping(true);
 
     try {
-      // POST request to actual FastAPI router
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: currentUser.id,
-          active_agent: activeAgent, // 'auto_route', 'hr_policies', etc.
-          query: text
-        })
+        body: JSON.stringify({ user_id: currentUser.id, query: text })
       });
-      
+
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Chất lượng kết nối kém!");
-      }
-
-      const routedAgentKey = data.target_agent;
-      const targetAgentObj = agents[routedAgentKey] || { name: routedAgentKey };
-
-      // Build abbreviations
-      let avatarAbbr = "AG";
-      if (targetAgentObj.name) {
-        const words = targetAgentObj.name.split(" ");
-        if (words.length >= 2) {
-          avatarAbbr = (words[0][0] + words[1][0]).toUpperCase();
-        } else {
-          avatarAbbr = words[0].substring(0, 2).toUpperCase();
-        }
-      }
-
-      // Check whether AI classified intent in Auto-routing
-      let routeInfoBadge = "";
-      if (activeAgent === 'auto_route' && routedAgentKey !== 'auto_route' && routedAgentKey !== 'unknown') {
-        addLog(`[Router] Classified intent. Dynamic routed query to: ${routedAgentKey}`, "warning");
-        routeInfoBadge = `Định tuyến thông minh: → ${targetAgentObj.name}`;
-      }
+      if (!res.ok) throw new Error(data.detail || "Chất lượng kết nối kém!");
 
       const botMsg = {
         role: "assistant",
-        agentName: targetAgentObj.name || "AI Agent Response",
-        avatarAbbr,
+        agentName: "AI Assistant",
+        avatarAbbr: "AI",
         text: data.response,
-        skillTag: data.access_granted ? "LangGraph Engine" : "Access Denied",
-        routeInfoBadge,
+        skillTag: "LangGraph Engine",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
       setChatMessages(prev => [...prev, botMsg]);
-      addLog(`Received real response from Agent [${routedAgentKey}] successfully`, "success");
+      addLog(`Received response from LLM successfully`, "success");
     } catch (err) {
       addLog(`Chat Error: ${err.message}`, "error");
       
@@ -549,9 +346,8 @@ function App() {
               </div>
 
               {/* 1. LEFT SIDEBAR */}
-              <Sidebar 
+              <Sidebar
                 currentUser={currentUser}
-                agentsCount={Object.keys(agents).length - 1} // Exclude auto_route from count
                 skillsCount={skills.length}
                 toolsCount={tools.length}
                 handleLogout={handleLogout}
@@ -561,59 +357,44 @@ function App() {
               <div className="content-panel">
                 <Routes>
                   {/* Chat tab */}
-                  <Route 
-                    path="chat" 
+                  <Route
+                    path="chat"
                     element={
-                      <ChatWorkspace 
-                        activeTab="tab-chat"
-                        activeAgent={activeAgent}
-                        setActiveAgent={setActiveAgent}
-                        agents={agents}
+                      <ChatWorkspace
                         chatMessages={chatMessages}
                         isTyping={isTyping}
                         handleSendMessage={handleSendMessage}
                       />
-                    } 
+                    }
                   />
 
                   {/* Admin-only paths */}
                   {currentUser.role === 'admin' && (
                     <>
-                      <Route 
-                        path="admin/agents" 
+                      <Route
+                        path="admin/skills"
                         element={
-                          <AgentManager 
-                            activeTab="tab-agents"
-                            agents={agents}
-                            saveSystemPrompt={saveSystemPrompt}
-                            setAgentModalOpen={setAgentModalOpen}
-                          />
-                        } 
-                      />
-                      <Route 
-                        path="admin/skills" 
-                        element={
-                          <SkillManager 
+                          <SkillManager
                             activeTab="tab-skills"
                             skills={skills}
-                            agents={agents}
+                            agents={{}}
                             deleteSkill={deleteSkill}
                             onStartSkillDraft={handleStartSkillDraft}
                           />
-                        } 
+                        }
                       />
-                      <Route 
-                        path="admin/tools" 
+                      <Route
+                        path="admin/tools"
                         element={
-                          <ToolRegistry 
+                          <ToolRegistry
                             activeTab="tab-tools"
                             tools={tools}
-                            agents={agents}
+                            agents={{}}
                             toggleToolStatus={toggleToolStatus}
                             deleteTool={deleteTool}
                             setToolModalOpen={setToolModalOpen}
                           />
-                        } 
+                        }
                       />
                     </>
                   )}
@@ -627,16 +408,10 @@ function App() {
               </div>
 
               {/* 4. MODALS OVERLAYS */}
-              <AgentModal 
-                isOpen={agentModalOpen}
-                onClose={() => setAgentModalOpen(false)}
-                onCreateAgent={handleCreateAgent}
-              />
-
-              <ToolModal 
+              <ToolModal
                 isOpen={toolModalOpen}
                 onClose={() => setToolModalOpen(false)}
-                agents={agents}
+                agents={{}}
                 onCreateTool={handleCreateTool}
               />
 
