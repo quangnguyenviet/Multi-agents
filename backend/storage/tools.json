@@ -1,0 +1,32 @@
+[
+  {
+    "id": "get_company_employee_list",
+    "name": "get_company_employee_list",
+    "icon": "fa-address-book",
+    "description": "Truy xuất danh sách toàn bộ nhân sự công ty bao gồm Mã nhân viên, Họ tên, Phòng ban và Vai trò.",
+    "agent": "system_admin",
+    "category": "Database Query",
+    "active": false,
+    "created_by": "System"
+  },
+  {
+    "id": "hr_policy_retriever",
+    "name": "hr_policy_retriever",
+    "icon": "fa-file-shield",
+    "description": "Tìm kiếm ngữ cảnh liên quan đến chính sách nhân sự trong cơ sở dữ liệu Vector (Chuyên dùng cho RAG).",
+    "agent": "hr_policies",
+    "category": "Vector Search",
+    "active": true,
+    "created_by": "System"
+  },
+  {
+    "id": "salary_calculator",
+    "name": "salary_calculator",
+    "icon": "fa-calculator",
+    "description": "Tính toán tổng thu nhập, khấu trừ bảo hiểm xã hội và thuế TNCN theo công thức lương mới nhất.",
+    "agent": "salary_management",
+    "category": "Math/Logic",
+    "active": true,
+    "created_by": "System"
+  }
+]

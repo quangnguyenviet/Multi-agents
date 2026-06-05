@@ -1,0 +1,52 @@
+{
+  "auto_route": {
+    "id": "auto_route",
+    "name": "✨ Tự động định tuyến (Router)",
+    "icon": "fa-route",
+    "description": "Hệ thống tự động phân loại ý định người dùng và chuyển tiếp đến Agent xử lý phù hợp nhất trong LangGraph.",
+    "welcome": "Xin chào! Tôi là **Router Tự động**. Hệ thống đang hoạt động ở chế độ phân phối thông minh. Bạn có thể hỏi bất kỳ câu hỏi nào về nhân sự, lương thưởng hoặc hệ thống, tôi sẽ tự động định tuyến đến Agent phù hợp nhất trong Graph!",
+    "system_prompt": "",
+    "is_builtin": true,
+    "created_by": "System"
+  },
+  "hr_policies": {
+    "id": "hr_policies",
+    "name": "HR Policies Agent",
+    "icon": "fa-users-gear",
+    "description": "Giải đáp quy định, quy chế công ty, chế độ phép năm, bảo hiểm.",
+    "welcome": "Chào bạn! Tôi là **HR Policies Agent**. Tôi chịu trách nhiệm giải đáp các thông tin chính thức liên quan đến: Quy chế công sở, Giờ giấc làm việc, và Ngày nghỉ phép.",
+    "system_prompt": "Ban la tro ly test",
+    "is_builtin": true,
+    "created_by": "System"
+  },
+  "salary_management": {
+    "id": "salary_management",
+    "name": "Salary Management Agent",
+    "icon": "fa-wallet",
+    "description": "Quản lý và tra cứu thông tin bảng lương, tính thưởng và báo cáo lương.",
+    "welcome": "Xin chào! Tôi là **Salary Management Agent**. Tôi có thể hỗ trợ tra cứu lương của bạn, tính toán thưởng Tết và kết xuất báo cáo lương công ty dành cho Quản lý.",
+    "system_prompt": "",
+    "is_builtin": true,
+    "created_by": "System"
+  },
+  "system_admin": {
+    "id": "system_admin",
+    "name": "System Admin Agent",
+    "icon": "fa-server",
+    "description": "Theo dõi và giám sát hiệu năng máy chủ, CPU, RAM và log hệ thống.",
+    "welcome": "Kết nối hạ tầng Dell PowerEdge R750. Tôi là **System Admin Agent**, sẵn sàng hỗ trợ kiểm tra tài nguyên CPU, RAM, dung lượng SSD và đọc logs máy chủ.",
+    "system_prompt": "",
+    "is_builtin": true,
+    "created_by": "System"
+  },
+  "user_management": {
+    "id": "user_management",
+    "name": "User Management Agent",
+    "icon": "fa-user-gear",
+    "description": "Quản lý người dùng, tài khoản demo và liên kết API cổng 8080.",
+    "welcome": "Xin chào! Tôi là **User Management Agent**. Tôi quản lý danh sách người dùng hệ thống, tài khoản demo/test và các liên kết API cổng 8080.",
+    "system_prompt": "",
+    "is_builtin": true,
+    "created_by": "System"
+  }
+}

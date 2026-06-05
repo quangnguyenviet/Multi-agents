@@ -5,8 +5,12 @@ from data import database as db
 from config.settings import settings
 from skills.base import Skill, SkillType, Parameter, Permission
 
+# Import storage modules
+from storage import agent_store, tool_store
+
 # Import Pydantic schemas
 from .models import ChatRequest, CreateSkillRequest, PublishSkillRequest
+from .models import AgentPromptRequest, CreateAgentRequest, CreateToolRequest, UpdateToolRequest
 
 # Import Agent instances and chatbot graph
 from agents import (
@@ -28,49 +32,9 @@ async def get_agents(user_id: str = Query(...)):
     if not user_info:
         raise HTTPException(status_code=404, detail="User ID không tồn tại")
     role = user_info["role"]
-    
-    # Role permissions map
-    role_permissions = {
-        "employee": ["hr_policies", "salary_management"],
-        "accountant": ["hr_policies", "salary_management", "user_management"],
-        "admin": ["hr_policies", "salary_management", "system_admin", "user_management"]
-    }
-    
-    allowed = role_permissions.get(role, ["hr_policies"])
-    
-    agents_list = []
-    agents_info = {
-        "hr_policies": {
-            "name": "HR Policies Agent",
-            "description": "Giải đáp quy định, quy chế công ty, chế độ phép năm, bảo hiểm.",
-            "icon": "fa-users-gear"
-        },
-        "salary_management": {
-            "name": "Salary Management Agent",
-            "description": "Quản lý và tra cứu thông tin bảng lương, tính thưởng và báo cáo lương.",
-            "icon": "fa-wallet"
-        },
-        "system_admin": {
-            "name": "System Admin Agent",
-            "description": "Theo dõi và giám sát hiệu năng máy chủ, CPU, RAM và log hệ thống.",
-            "icon": "fa-server"
-        },
-        "user_management": {
-            "name": "User Management Agent",
-            "description": "Quản lý người dùng, tài khoản demo và liên kết API cổng 8080.",
-            "icon": "fa-user-gear"
-        }
-    }
-    
-    for aid, ainfo in agents_info.items():
-        agents_list.append({
-            "id": aid,
-            "name": ainfo["name"],
-            "description": ainfo["description"],
-            "icon": ainfo["icon"],
-            "is_allowed": aid in allowed
-        })
-        
+
+    agents_list = agent_store.get_agents_for_user(role)
+
     return {
         "user_id": user_id,
         "name": user_info["name"],
@@ -324,3 +288,155 @@ async def delete_skill(skill_id: str, user_id: str):
             print(f"⚠️ Error deleting file: {e}")
             
     return {"success": True, "message": f"Đã xóa thành công kỹ năng {skill_id}"}
+
+
+# ============================================================
+# TOOL API ENDPOINTS
+# ============================================================
+
+@router.get("/tools")
+async def get_tools():
+    """Return all tools from the persistent store."""
+    tools = tool_store.load_tools()
+    return tools
+
+
+@router.post("/tools")
+async def create_tool(req: CreateToolRequest):
+    """Create a new tool (admin only)."""
+    user_info = db.get_user_info(req.user_id)
+    if not user_info:
+        raise HTTPException(status_code=404, detail="User ID không tồn tại")
+    if user_info["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền tạo tool mới")
+
+    clean_id = req.id.strip().lower().replace(" ", "_")
+    try:
+        new_tool = tool_store.add_tool({
+            "id": clean_id,
+            "name": clean_id,
+            "icon": req.icon,
+            "description": req.description,
+            "agent": req.agent,
+            "category": req.category,
+            "created_by": user_info["name"]
+        })
+        return {"success": True, "tool": new_tool}
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.put("/tools/{tool_id}")
+async def update_tool(tool_id: str, req: UpdateToolRequest):
+    """Update a tool (admin only). Supports toggling active, editing description/category/agent."""
+    user_info = db.get_user_info(req.user_id)
+    if not user_info:
+        raise HTTPException(status_code=404, detail="User ID không tồn tại")
+    if user_info["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền cập nhật tool")
+
+    updates = {}
+    if req.active is not None:
+        updates["active"] = req.active
+    if req.description is not None:
+        updates["description"] = req.description
+    if req.category is not None:
+        updates["category"] = req.category
+    if req.agent is not None:
+        updates["agent"] = req.agent
+
+    try:
+        updated_tool = tool_store.update_tool(tool_id, updates)
+        return {"success": True, "tool": updated_tool}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/tools/{tool_id}")
+async def delete_tool(tool_id: str, user_id: str = Query(...)):
+    """Delete a tool (admin only)."""
+    user_info = db.get_user_info(user_id)
+    if not user_info:
+        raise HTTPException(status_code=404, detail="User ID không tồn tại")
+    if user_info["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền xóa tool")
+
+    try:
+        tool_store.delete_tool(tool_id)
+        return {"success": True, "message": f"Đã xóa thành công tool {tool_id}"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ============================================================
+# AGENT MANAGEMENT API ENDPOINTS
+# ============================================================
+
+@router.get("/agents/config")
+async def get_agents_config(user_id: str = Query(...)):
+    """Return full agent configs including system_prompt (admin only)."""
+    user_info = db.get_user_info(user_id)
+    if not user_info:
+        raise HTTPException(status_code=404, detail="User ID không tồn tại")
+    if user_info["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được xem cấu hình agent")
+
+    agents = agent_store.load_agents()
+    return agents
+
+
+@router.put("/agents/{agent_id}/prompt")
+async def save_agent_prompt(agent_id: str, req: AgentPromptRequest):
+    """Save the system prompt for an agent (admin only)."""
+    user_info = db.get_user_info(req.user_id)
+    if not user_info:
+        raise HTTPException(status_code=404, detail="User ID không tồn tại")
+    if user_info["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền lưu prompt")
+
+    try:
+        agent_store.update_agent_prompt(agent_id, req.system_prompt)
+        return {"success": True, "message": f"Đã lưu prompt cho Agent {agent_id}"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/agents")
+async def create_agent(req: CreateAgentRequest):
+    """Create a new custom agent (admin only)."""
+    user_info = db.get_user_info(req.user_id)
+    if not user_info:
+        raise HTTPException(status_code=404, detail="User ID không tồn tại")
+    if user_info["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền tạo agent")
+
+    clean_id = req.id.strip().lower().replace(" ", "_")
+    try:
+        new_agent = agent_store.add_agent({
+            "id": clean_id,
+            "name": req.name,
+            "icon": req.icon,
+            "description": req.description,
+            "welcome": req.welcome,
+            "system_prompt": req.system_prompt,
+            "created_by": user_info["name"]
+        })
+        return {"success": True, "agent": new_agent}
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.delete("/agents/{agent_id}")
+async def delete_agent(agent_id: str, user_id: str = Query(...)):
+    """Delete a custom agent (admin only). Builtin agents cannot be deleted."""
+    user_info = db.get_user_info(user_id)
+    if not user_info:
+        raise HTTPException(status_code=404, detail="User ID không tồn tại")
+    if user_info["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền xóa agent")
+
+    try:
+        agent_store.delete_agent(agent_id)
+        return {"success": True, "message": f"Đã xóa thành công agent {agent_id}"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
