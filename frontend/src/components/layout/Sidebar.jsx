@@ -19,13 +19,21 @@ function Sidebar({ currentUser, agentsCount, skillsCount, toolsCount, handleLogo
 
       <div className="nav-links">
         <span className="nav-section-title">Không gian chính</span>
-        
-        <NavLink 
-          to="/chat" 
+
+        <NavLink
+          to="/chat"
           className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
         >
           <i className="fa-solid fa-comments"></i>
           <span>Trò chuyện Bot</span>
+        </NavLink>
+
+        <NavLink
+          to="/cv-processor"
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+        >
+          <i className="fa-solid fa-file-circle-check"></i>
+          <span>CV Processor</span>
         </NavLink>
 
         {currentUser.role === 'admin' && (

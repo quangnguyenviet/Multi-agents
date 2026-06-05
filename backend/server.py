@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Import router from api/routes.py
 from api.routes import router as api_router
+from api.cv_routes import cv_router
 
 app = FastAPI(title="Evo Agents Multi-Agent RBAC Studio")
 
@@ -21,6 +22,7 @@ app.add_middleware(
 
 # Include business routes under /api
 app.include_router(api_router, prefix="/api")
+app.include_router(cv_router, prefix="/api")
 
 # Resolve absolute paths to frontend build assets
 # server.py is in backend/, frontend is a sibling of backend/

@@ -25,8 +25,13 @@ Chúng ta đã hoàn thành đợt nâng cấp chiến lược: **Chuyển đổ
    - Toàn bộ App.jsx đã gọi `fetch()` API thực tế đến FastAPI: Chat (`POST /api/chat`), Agents CRUD, Skills (load/draft/publish/delete), Tools (CRUD + toggle), Login (RBAC). Không còn mock state nào.
 
 ## Hoàn thành gần đây
-- **🔌 Di trú LLM Provider sang 9Router**: Backend không còn phụ thuộc trực tiếp vào Groq API. Toàn bộ LLM config được trỏ về 9Router proxy nội bộ (`http://172.31.2.23:20128/v1`). Biến môi trường `GROQ_API_KEY` đã được đổi thành `LLM_API_KEY` chung, `settings.py` đọc động từ `.env`. 9Router mang lại token saving, format translation và multi-tier fallback.
+- **🔌 Di trú LLM Provider sang 9Router**: Backend không còn phụ thuộc trực tiếp vào Groq API. Toàn bộ LLM config được trỏ về 9Router proxy nội bộ (`http://172.31.2.23:20128/v1`). Biến môi trường `GROQ_API_KEY` đã được đổi thành `LLM_API_KEY` chung, `settings.py` đọc động từ `.env`.
 - **🔗 Tích hợp API Backend**: Đã thay thế hoàn toàn mock state — `App.jsx` hiện gọi `fetch()` thực tế đến mọi endpoint FastAPI (Chat, Agents, Skills, Tools). Dữ liệu được lưu và đọc trực tiếp từ SQLite + file-system JSON.
+- **📄 CV Processor**: Tính năng chuyển đổi CV PDF sang mẫu CV mới. Flow: upload PDF → pdfplumber extract text → LLM (9Router) trả JSON có cấu trúc → UI cho chỉnh sửa → Jinja2 render HTML template → browser print ra PDF. Accessible với mọi user đã đăng nhập (không giới hạn role). Các file chính: `backend/cv_agent.py`, `backend/api/cv_routes.py`, `backend/templates/cv_template.html`, `frontend/src/components/cv/CVProcessor.jsx`.
+
+## Lưu ý kỹ thuật quan trọng (CV Processor)
+- `cv_agent.py` phải đặt ở `backend/` root, **không** trong `backend/agents/` — nếu đặt trong `agents/` sẽ kéo theo `agents/__init__.py` → `instances.py` → `skills/loader.py` → `print(emoji)` → UnicodeEncodeError trên Windows cp1252.
+- Prompt template chứa JSON schema có `{` `}` → dùng `.replace("{cv_text}", ...)` thay vì `.format()` để tránh `KeyError`.
 
 ## Nhiệm vụ tiếp theo
 - **Xác thực JWT**: Nâng cấp phân quyền từ cơ chế `user_id` query param hiện tại sang Token JWT bảo mật, tích hợp vào header `Authorization: Bearer <token>` cho mọi request API.

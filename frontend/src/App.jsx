@@ -13,6 +13,7 @@ import ToolRegistry from './components/admin/ToolRegistry';
 import AgentModal from './components/modals/AgentModal';
 import ToolModal from './components/modals/ToolModal';
 import SkillDraftModal from './components/modals/SkillDraftModal';
+import CVProcessor from './components/cv/CVProcessor';
 
 
 function App() {
@@ -616,6 +617,9 @@ function App() {
                       />
                     </>
                   )}
+
+                  {/* CV Processor — available to all logged-in users */}
+                  <Route path="cv-processor" element={<CVProcessor />} />
 
                   {/* Fallback inside dashboard */}
                   <Route path="*" element={<Navigate to="chat" replace />} />
