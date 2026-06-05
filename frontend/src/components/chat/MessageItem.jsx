@@ -18,7 +18,7 @@ const formatMarkdown = (text) => {
   return html;
 };
 
-const printCV = (html) => {
+const printContent = (html) => {
   const w = window.open('', '_blank');
   w.document.write(html);
   w.document.close();
@@ -49,17 +49,17 @@ function MessageItem({ msg }) {
           <div dangerouslySetInnerHTML={{ __html: formatMarkdown(msg.text) }} />
         </div>
 
-        {msg.cvHtml && (
-          <div className="cv-preview-card">
-            <div className="cv-preview-header">
-              <span><i className="fa-solid fa-file-lines" style={{ marginRight: '6px' }}></i>CV đã tạo</span>
-              <button className="cv-print-btn" onClick={() => printCV(msg.cvHtml)}>
+        {msg.richHtml && (
+          <div className="rich-output-card">
+            <div className="rich-output-header">
+              <span><i className="fa-solid fa-file-lines" style={{ marginRight: '6px' }}></i>Tài liệu đã tạo</span>
+              <button className="rich-output-print-btn" onClick={() => printContent(msg.richHtml)}>
                 <i className="fa-solid fa-print" style={{ marginRight: '6px' }}></i>In / Xuất PDF
               </button>
             </div>
             <iframe
-              srcDoc={msg.cvHtml}
-              title="CV Preview"
+              srcDoc={msg.richHtml}
+              title="Document Preview"
               style={{ width: '100%', height: '520px', border: 'none', borderRadius: '0 0 8px 8px', background: '#fff' }}
             />
           </div>

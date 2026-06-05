@@ -831,14 +831,14 @@ body {
 }
 .remove-file-btn:hover { color: #f87171; }
 
-.cv-preview-card {
+.rich-output-card {
     margin-top: 12px;
     border: 1px solid rgba(99, 102, 241, 0.25);
     border-radius: 8px;
     overflow: hidden;
     max-width: 700px;
 }
-.cv-preview-header {
+.rich-output-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -848,7 +848,7 @@ body {
     font-size: 13px;
     color: var(--text-secondary);
 }
-.cv-print-btn {
+.rich-output-print-btn {
     background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
     border: none;
     border-radius: 6px;
@@ -858,7 +858,7 @@ body {
     cursor: pointer;
     transition: opacity 0.2s;
 }
-.cv-print-btn:hover { opacity: 0.85; }
+.rich-output-print-btn:hover { opacity: 0.85; }
 
 /* -----------------------------------------
    4B. TAB 2: AGENT MANAGER (ADMIN ONLY)

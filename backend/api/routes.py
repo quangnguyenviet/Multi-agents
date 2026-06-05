@@ -103,20 +103,23 @@ async def chat(
             "agent_response": ""
         })
 
-        # Tìm cv_id từ ToolMessage của generate_cv_file (quét ngược để lấy cái mới nhất)
-        cv_html = None
-        for msg in reversed(result.get("messages", [])):
-            if isinstance(msg, ToolMessage) and "cv_id:" in (msg.content or ""):
-                raw = msg.content.split("cv_id:")[-1].strip()
-                cv_id = raw.split()[0]  # lấy token đầu tiên, bỏ text thừa phía sau
-                cv_html = _cv_html_store.get(cv_id)
-                if cv_html:
+        # Tìm HTML output từ bất kỳ tool nào trả về __html_id__
+        rich_html = None
+        messages = result.get("messages", [])
+        for msg in reversed(messages):
+            if isinstance(msg, ToolMessage) and "__html_id__:" in (msg.content or ""):
+                html_id = msg.content.split("__html_id__:")[-1].strip().split()[0]
+                rich_html = _cv_html_store.get(html_id)
+                if rich_html:
                     break
 
         if file_id:
             _pdf_store.pop(file_id, None)
 
-        return {"response": result.get("agent_response", ""), "cv_html": cv_html}
+        final_response = result.get("agent_response", "")
+        if rich_html:
+            return {"response": final_response, "rich_html": rich_html}
+        return {"response": final_response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi chatbot: {e}")
 

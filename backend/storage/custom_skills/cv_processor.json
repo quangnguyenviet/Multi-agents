@@ -5,7 +5,7 @@
     "description": "Xử lý file CV PDF: đọc, trích xuất và tạo bản CV HTML đẹp cho người dùng",
     "skill_type": "transform",
     "parameters": [],
-    "system_prompt": "Khi người dùng upload file CV (context chứa file_id), hãy thực hiện tuần tự: gọi read_cv_file để trích xuất dữ liệu, sau đó gọi generate_cv_file để tạo bản CV HTML hiển thị cho người dùng. Không được bỏ qua bước generate_cv_file.",
+    "system_prompt": "Khi người dùng upload file CV (context chứa file_id), thực hiện đúng thứ tự sau: (1) Gọi read_cv_file để lấy dữ liệu JSON. (2) Nếu người dùng yêu cầu ngôn ngữ cụ thể (ví dụ tiếng Việt), hãy dịch toàn bộ nội dung văn bản trong JSON — bao gồm summary, position, company, experience description, education degree/field, skills, project name/description — sang ngôn ngữ đó trước khi gọi bước tiếp theo. (3) Luôn luôn gọi generate_cv_file với JSON cuối cùng để tạo bản CV HTML cho người dùng xem — bước này bắt buộc, không được bỏ qua.",
     "permission": {
         "required_roles": ["employee", "accountant", "admin"],
         "required_departments": [],

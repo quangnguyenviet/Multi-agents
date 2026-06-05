@@ -302,8 +302,8 @@ function App() {
         agentName: "AI Assistant",
         avatarAbbr: "AI",
         text: data.response,
-        cvHtml: data.cv_html || null,
-        skillTag: data.cv_html ? "CV Generator" : "LangGraph Engine",
+        richHtml: data.rich_html || null,
+        skillTag: "LangGraph Engine",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 

@@ -44,4 +44,4 @@ def generate_cv_file(cv_json: str) -> str:
 
     cv_id = uuid.uuid4().hex[:8]
     _cv_html_store[cv_id] = cv_html
-    return f"CV đã được tạo thành công. cv_id: {cv_id}"
+    return f"Tài liệu HTML đã được tạo thành công. __html_id__: {cv_id}"

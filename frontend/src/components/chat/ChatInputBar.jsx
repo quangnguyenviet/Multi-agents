@@ -59,7 +59,7 @@ function ChatInputBar({ onSendMessage }) {
         <input
           type="text"
           className="chat-input"
-          placeholder={attachedFile ? "Nhập yêu cầu cho file CV..." : "Nhập câu hỏi của bạn..."}
+          placeholder={attachedFile ? "Nhập yêu cầu cho file đính kèm..." : "Nhập câu hỏi của bạn..."}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}

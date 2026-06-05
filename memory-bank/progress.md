@@ -24,12 +24,15 @@
 - [x] **Tool Node LangGraph**: Thêm `ToolNode` + conditional edge. Topology: `START → llm → [tools] → llm → END`. 7 tools.
 - [x] **CV Processor tích hợp Chat**: 2 tools `read_cv_file` + `generate_cv_file`. LLM tự gọi tool khi nhận file_id. `/api/chat` đổi sang multipart/form-data. Frontend: nút đính kèm PDF + CV preview card trong chat.
 - [x] **[NEW] Skill → LLM Node Integration**: `_build_system_prompt()` trong `llm_node.py` inject system_prompt từ skills có `agent_id: "llm_node"`. Tạo `cv_processor.json` skill hướng dẫn flow CV. Convention mới: thêm behavior cho LLM = tạo JSON skill, không cần sửa code.
+- [x] **Bug fix llm_node re-entry**: Khi LLM gọi lại sau ToolNode, nay luôn prepend `[SystemMessage, HumanMessage]` vào history để LLM không quên ngữ cảnh gốc (ví dụ: "tạo CV tiếng Việt").
+- [x] **Logging**: Thêm `logging.basicConfig` trong `server.py` + `logger` trong `llm_node.py` — trace được từng bước tool call trong terminal.
+- [x] **Generalize Chat Flow (bỏ hardcode CV)**: Xóa fallback tự gọi `generate_cv_file`. Đổi marker `"cv_id:"` → `"__html_id__:"`. Response API: `{"response": text, "rich_html": html|null}`. Frontend: `msg.richHtml` thay `msg.cvHtml`, CSS class `rich-output-*`. Placeholder "file CV" → "file đính kèm".
 
 ## Trạng thái hiện tại
 - **Workflow**: LangGraph ReAct — llm node bind 7 tools, conditional edge tới ToolNode.
 - **System Prompt**: Dynamic — `BASE_SYSTEM_PROMPT` + skill prompts có `agent_id == "llm_node"` từ `skill_registry`.
-- **Chat**: `POST /api/chat` (multipart Form) → LangGraph → tool calls (nếu cần) → phản hồi + optional `cv_html`.
-- **CV in Chat**: Upload PDF → LLM gọi `read_cv_file` → `generate_cv_file` → iframe CV + Print button.
+- **Chat**: `POST /api/chat` (multipart Form) → LangGraph → tool calls (nếu cần) → `{"response": text, "rich_html": html|null}`.
+- **Rich HTML output**: Tool nào tạo HTML lưu vào `_cv_html_store`, trả `__html_id__: {id}`. Routes.py quét ToolMessages, trả `rich_html`. Frontend hiển thị text + iframe bên dưới.
 - **API Backend**: Chat, Skills, Tools, CV Processor trang riêng — tất cả hoạt động.
-- **Frontend**: Chat với file attach + CV preview card. Admin: Skills, Tools.
+- **Frontend**: Chat với file attach + rich HTML card generic. Admin: Skills, Tools.
 - **Việc tiếp theo**: JWT authentication.
