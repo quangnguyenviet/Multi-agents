@@ -10,16 +10,9 @@ class Settings:
     LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
     LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
     
-    # Skill Configuration
-    SKILLS_DIR = "./storage/custom_skills"
-    BUILTIN_SKILLS_DIR = "./skills/builtin"
-    ALLOW_USER_CREATE_SKILLS = True
-    MAX_SKILLS_PER_USER = 20
-    
-    # Security
-    ENABLE_SKILL_AUDIT = True
-    SKILL_EXECUTION_LOG = "./logs/skill_executions.log"
-    
+    # Skill Configuration — file Markdown (.md) là source of truth
+    SKILLS_DIR = "./skills/library"
+
     # Cache
     CACHE_TTL = 300  # 5 minutes
 

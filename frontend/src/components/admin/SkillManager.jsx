@@ -1,95 +1,80 @@
-import React, { useState } from 'react';
-import SwitchToggle from '../common/SwitchToggle';
+import React from 'react';
 
-function SkillManager({ 
-  activeTab, 
-  skills, 
-  agents, 
-  deleteSkill, 
-  onStartSkillDraft 
-}) {
-  const [newSkillInput, setNewSkillInput] = useState({ 
-    name: "get_company_employee_list", 
-    description: "Lấy danh sách tất cả nhân viên trong hệ thống và hiển thị dạng bảng chuyên nghiệp", 
-    agent: "system_admin" 
-  });
-
-  const handleCreateDraft = () => {
-    if (!newSkillInput.name.trim() || !newSkillInput.description.trim()) {
-      alert("Vui lòng nhập tên và mô tả kỹ năng!");
-      return;
-    }
-    onStartSkillDraft(newSkillInput.name, newSkillInput.description, newSkillInput.agent);
-  };
-
+function SkillManager({ activeTab, skills }) {
   return (
     <div className={`tab-content ${activeTab === 'tab-skills' ? 'active' : ''}`}>
       <div className="panel-header">
         <div className="panel-title-wrapper">
-          <h2 className="panel-title">Skill Studio (Human-in-the-loop)</h2>
-          <p className="panel-desc">Thiết kế kỹ năng mới bằng ngôn ngữ tự nhiên. AI sẽ tự động sinh mã cấu hình JSON để bạn review trước khi biên dịch.</p>
+          <h2 className="panel-title">Skill Library (Markdown)</h2>
+          <p className="panel-desc">
+            Skill là các quy trình chuyên biệt dạng Markdown. LLM nạp on-demand qua tool <code>load_skill</code>.
+            Thêm skill mới = tạo file <code>.md</code> trong <code>backend/skills/library/</code> → restart server.
+          </p>
         </div>
-        
-        <div className="panel-header-buttons">
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <input
-              type="text"
-              placeholder="Tên kỹ năng..."
-              className="form-input"
-              style={{ width: '160px', padding: '6px 12px', fontSize: '12px' }}
-              value={newSkillInput.name}
-              onChange={(e) => setNewSkillInput(prev => ({ ...prev, name: e.target.value }))}
-            />
-            <input
-              type="text"
-              placeholder="Mô tả kỹ năng nháp bằng tiếng Việt..."
-              className="form-input"
-              style={{ width: '280px', padding: '6px 12px', fontSize: '12px' }}
-              value={newSkillInput.description}
-              onChange={(e) => setNewSkillInput(prev => ({ ...prev, description: e.target.value }))}
-            />
-            <select
-              className="form-select"
-              style={{ padding: '6px 12px', fontSize: '12px' }}
-              value={newSkillInput.agent}
-              onChange={(e) => setNewSkillInput(prev => ({ ...prev, agent: e.target.value }))}
-            >
-              {Object.keys(agents).filter(k => k !== 'auto_route').map(k => (
-                <option key={k} value={k}>{agents[k].name}</option>
-              ))}
-            </select>
-          </div>
-          
-          <button className="panel-btn-primary" onClick={handleCreateDraft}>
-            <i className="fa-solid fa-wand-magic-sparkles"></i>
-            <span>Tạo Kỹ năng (AI Draft)</span>
-          </button>
+        <div style={{
+          padding: '6px 14px',
+          borderRadius: '8px',
+          background: 'rgba(99,102,241,0.08)',
+          border: '1px solid rgba(99,102,241,0.2)',
+          color: 'var(--color-primary)',
+          fontSize: '13px',
+          fontFamily: 'monospace',
+        }}>
+          <i className="fa-solid fa-wand-magic-sparkles" style={{ marginRight: '6px' }}></i>
+          {skills.length} skills
         </div>
       </div>
 
       <div className="skills-grid-view">
         {skills.map(skill => (
-          <div key={skill.id} className="skill-mgmt-card">
+          <div key={skill.name} className="skill-mgmt-card">
             <div className="skill-mgmt-title-row">
-              <div>
-                <h3 className="skill-mgmt-name">{skill.name}</h3>
-                <span className="skill-mgmt-badge">{skill.category}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  border: '1px solid rgba(99, 102, 241, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--color-primary)',
+                  flexShrink: 0,
+                }}>
+                  <i className="fa-solid fa-wand-magic-sparkles" style={{ fontSize: '13px' }}></i>
+                </div>
+                <div>
+                  <h3 className="skill-mgmt-name" style={{ margin: 0, fontFamily: 'monospace', fontSize: '13px' }}>
+                    {skill.name}
+                  </h3>
+                </div>
               </div>
-              
-              <SwitchToggle defaultChecked={skill.active} />
-            </div>
-            
-            <p className="skill-mgmt-desc">{skill.description}</p>
-            
-            <div className="skill-mgmt-footer">
-              <span className="skill-mgmt-agent-badge">
-                <i className="fa-solid fa-robot"></i> {agents[skill.agent]?.name || skill.agent}
+
+              <span style={{
+                padding: '3px 10px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: 600,
+                background: 'rgba(34,197,94,0.1)',
+                color: '#22c55e',
+                border: '1px solid rgba(34,197,94,0.2)',
+                whiteSpace: 'nowrap',
+              }}>
+                <i className="fa-solid fa-circle" style={{ fontSize: '7px', marginRight: '5px' }}></i>
+                Active
               </span>
-              
-              <div className="skill-mgmt-actions">
-                <button className="skill-action-icon-btn" title="Chỉnh sửa"><i className="fa-solid fa-pen-to-square"></i></button>
-                <button className="skill-action-icon-btn delete-btn" title="Xóa" onClick={() => deleteSkill(skill.id)}><i className="fa-solid fa-trash-can"></i></button>
-              </div>
+            </div>
+
+            <p className="skill-mgmt-desc" style={{ marginTop: '10px' }}>
+              {skill.description}
+            </p>
+
+            <div className="skill-mgmt-footer" style={{ marginTop: '8px' }}>
+              <span className="skill-mgmt-badge">
+                <i className="fa-brands fa-markdown" style={{ marginRight: '4px' }}></i>
+                Markdown Skill
+              </span>
             </div>
           </div>
         ))}

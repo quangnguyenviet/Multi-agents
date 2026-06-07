@@ -12,6 +12,7 @@ from tools.company_tools import (
     get_demo_users_list,
 )
 from tools.cv_tools import read_cv_file, generate_cv_file, generate_cv_word_file
+from tools.skill_tools import load_skill
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ TOOLS = [
     get_company_info, get_current_datetime, calculate,
     get_company_employee_list, get_demo_users_list,
     read_cv_file, generate_cv_file, generate_cv_word_file,
+    load_skill,
 ]
 
 llm_with_tools = ChatOpenAI(
@@ -35,22 +37,30 @@ llm_with_tools = ChatOpenAI(
 
 
 def _build_system_prompt() -> str:
-    """Ghép BASE_SYSTEM_PROMPT với system_prompt của các skill thuộc llm_node."""
+    """Ghép BASE_SYSTEM_PROMPT với CATALOG skill (chỉ name + description).
+
+    Progressive disclosure: không nhồi nội dung skill vào prompt. Khi yêu cầu
+    người dùng khớp một skill, LLM tự gọi tool `load_skill(name)` để lấy hướng
+    dẫn đầy đủ rồi mới thực hiện.
+    """
     try:
         from .instances import skill_registry
-        skill_prompts = [
-            skill.system_prompt
-            for skill in skill_registry.list_all()
-            if skill.system_prompt
-        ]
+        skills = skill_registry.list_all()
     except Exception:
-        skill_prompts = []
+        skills = []
 
-    if not skill_prompts:
+    if not skills:
         return BASE_SYSTEM_PROMPT
 
-    combined = "\n\n".join(skill_prompts)
-    return f"{BASE_SYSTEM_PROMPT}\n\n{combined}"
+    catalog = "\n".join(f"- {s.name}: {s.description}" for s in skills)
+    instruction = (
+        "## SKILLS KHẢ DỤNG\n"
+        "Dưới đây là các skill (quy trình chuyên biệt) bạn có thể dùng. "
+        "Khi yêu cầu của người dùng khớp mô tả một skill, hãy gọi tool "
+        "`load_skill` với đúng tên skill để lấy hướng dẫn chi tiết TRƯỚC khi thực hiện.\n"
+        f"{catalog}"
+    )
+    return f"{BASE_SYSTEM_PROMPT}\n\n{instruction}"
 
 
 def llm_node(state: MultiAgentState) -> dict:

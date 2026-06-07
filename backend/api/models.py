@@ -6,15 +6,6 @@ class ChatRequest(BaseModel):
     query: str
     active_agent: Optional[str] = None
 
-class CreateSkillRequest(BaseModel):
-    user_id: str
-    name: str
-    description: str
-
-class PublishSkillRequest(BaseModel):
-    user_id: str
-    skill_data: dict
-
 class AgentPromptRequest(BaseModel):
     user_id: str
     system_prompt: str

@@ -1,23 +1,18 @@
-import os
 import uuid
-from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Form, File, UploadFile
 from langchain_core.messages import ToolMessage
 from data import database as db
-from config.settings import settings
-from skills.base import Skill, SkillType, Parameter, Permission
 from tools.cv_tools import _pdf_store, _cv_html_store, _cv_docx_store
 
 # Import storage modules
 from storage import agent_store
 
 # Import Pydantic schemas
-from .models import CreateSkillRequest, PublishSkillRequest
 from .models import AgentPromptRequest, CreateAgentRequest
 
-# Import skill registry, factory and chatbot graph
-from agents import chatbot, skill_registry, skill_factory
+# Import skill registry and chatbot graph
+from agents import chatbot, skill_registry
 
 # Import TOOLS list (source of truth for tool registry)
 from agents.llm_node import TOOLS
@@ -36,16 +31,12 @@ async def get_user(user_id: str = Query(...)):
         "role": user_info["role"],
     }
 
-# API get all skills
+# API get all skills (read-only — source of truth là file Markdown trong skills/library)
 @router.get("/skills")
 async def get_skills():
+    """Trả về catalog skill (name + description). Nội dung đầy đủ nạp on-demand qua tool load_skill."""
     return [
-        {
-            "id": s.id,
-            "name": s.name,
-            "description": s.description,
-            "system_prompt": s.system_prompt,
-        }
+        {"name": s.name, "description": s.description}
         for s in skill_registry.list_all()
     ]
 
@@ -107,118 +98,7 @@ async def chat(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi chatbot: {e}")
 
-# API draft new skill dynamically (Pha 1: AI sinh bản nháp)
-@router.post("/skills/draft")
-async def draft_skill(req: CreateSkillRequest):
-    user_info = db.get_user_info(req.user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    role = user_info["role"]
-    name = user_info["name"]
-
-    if role != "admin":
-        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền thiết kế nháp skill mới")
-
-    try:
-        draft = await skill_factory.create_from_description(
-            user_description=req.description,
-            created_by=name
-        )
-        return {"success": True, "skill": draft.model_dump()}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi thiết kế nháp skill: {e}")
-
-# API publish reviewed skill dynamically (Pha 2: Admin duyệt & xuất bản)
-@router.post("/skills/publish")
-async def publish_skill(req: PublishSkillRequest):
-    user_info = db.get_user_info(req.user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    if user_info["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền xuất bản skill")
-
-    try:
-        skill_data = req.skill_data
-        published_skill = Skill(
-            id=skill_data["id"],
-            name=skill_data["name"],
-            version=skill_data.get("version", "1.0.0"),
-            description=skill_data["description"],
-            skill_type=SkillType(skill_data["skill_type"]),
-            parameters=[Parameter(**p) for p in skill_data.get("parameters", [])],
-            system_prompt=skill_data["system_prompt"],
-            permission=Permission(required_roles=skill_data.get("permission", {}).get("required_roles", [])),
-            examples=skill_data.get("examples", []),
-            metadata=skill_data.get("metadata", {}),
-            created_at=datetime.now(),
-            created_by=user_info["name"]
-        )
-
-        skill_registry.register(published_skill, [])
-
-        skill_file = os.path.join(settings.SKILLS_DIR, f"{published_skill.id}.json")
-        os.makedirs(os.path.dirname(skill_file), exist_ok=True)
-        with open(skill_file, "w", encoding="utf-8") as f:
-            f.write(published_skill.model_dump_json(indent=4))
-
-        return {"success": True, "skill": {"id": published_skill.id, "name": published_skill.name, "description": published_skill.description}}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi xuất bản skill: {e}")
-
-# API create new skill dynamically (Admin only)
-@router.post("/create_skill")
-async def create_skill(req: CreateSkillRequest):
-    user_info = db.get_user_info(req.user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    if user_info["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền tạo skill mới")
-
-    try:
-        new_skill = await skill_factory.create_from_description(
-            user_description=req.description,
-            created_by=user_info["name"]
-        )
-
-        skill_registry.register(new_skill, [])
-
-        skill_file = os.path.join(settings.SKILLS_DIR, f"{new_skill.id}.json")
-        os.makedirs(os.path.dirname(skill_file), exist_ok=True)
-        with open(skill_file, "w", encoding="utf-8") as f:
-            f.write(new_skill.model_dump_json(indent=4))
-
-        return {"success": True, "skill": {"id": new_skill.id, "name": new_skill.name, "description": new_skill.description}}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Lỗi tạo skill: {e}")
-
-@router.delete("/delete_skill")
-async def delete_skill(skill_id: str, user_id: str):
-    user_info = db.get_user_info(user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    role = user_info["role"]
-    
-    if role != "admin":
-        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền xóa skill")
-        
-    # Check if skill exists
-    skill = skill_registry.get(skill_id)
-    if not skill:
-        raise HTTPException(status_code=404, detail=f"Không tìm thấy kỹ năng có ID {skill_id}")
-        
-    # Remove from registry
-    skill_registry.remove(skill_id)
-    
-    # Delete from custom skills disk path if applicable
-    skill_file = os.path.join(settings.SKILLS_DIR, f"{skill_id}.json")
-    if os.path.exists(skill_file):
-        try:
-            os.remove(skill_file)
-            print(f"🗑️ Deleted custom skill file: {skill_file}")
-        except Exception as e:
-            print(f"⚠️ Error deleting file: {e}")
-            
-    return {"success": True, "message": f"Đã xóa thành công kỹ năng {skill_id}"}
+# Skill là read-only: thêm/sửa skill = tạo/sửa file .md trong skills/library/ → restart server.
 
 
 # ============================================================

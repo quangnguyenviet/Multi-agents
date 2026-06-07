@@ -30,11 +30,12 @@
 - [x] **Xuất CV Word (.docx) qua Chat**: Tool `generate_cv_word_file()` tạo Bản Lý Lịch Chuyên Môn — bảng nhân sự, học vấn, kinh nghiệm 2 cột (ngày | chi tiết dự án với Tên Dự án / Vị trí / Công việc thực hiện / Công nghệ sử dụng). Endpoint download `GET /api/cv/download-word/{docx_id}`. Frontend nút tải về. `cv_agent.py` schema thêm `technologies` per experience entry.
 - [x] **Xóa toàn bộ phần đa agent**: Bỏ 4 BaseAgent instances, bỏ `agent_id` routing trong skill system, bỏ filter `agent_id == "llm_node"`. `_build_system_prompt()` giờ load tất cả skills. Bỏ `GET /api/agents`, thêm `GET /api/user`. Đơn giản hóa tất cả skill endpoints và `main.py` CLI.
 - [x] **Tool Registry theo coding agent pattern**: Xóa `storage/tool_store.py` + `storage/tools.json`. `GET /api/tools` giờ derive trực tiếp từ `TOOLS` list trong `llm_node.py` — trả về name + description từ docstring của `@tool` function. Xóa POST/PUT/DELETE tool endpoints. `ToolRegistry.jsx` redesign thành read-only display. Thêm tool mới = viết Python function.
+- [x] **Skill System theo coding agent pattern + Progressive Disclosure**: Skill = file Markdown (`backend/skills/library/*.md`) với frontmatter `name`/`description` + body. `_build_system_prompt()` chỉ inject CATALOG (name+description), LLM gọi tool mới `load_skill(name)` để nạp body on-demand (TOOLS=9). `GET /api/skills` read-only trả `[{name, description}]`. Skill model rút gọn còn name/description/body; registry phẳng. Bỏ AI factory + endpoint draft/publish/create/delete. Frontend: App.jsx fetch `/api/skills` khi login, `SkillManager.jsx` read-only, xóa `SkillDraftModal.jsx`. Xóa code/data chết: `factory.py`, `skills/builtin/`, `skills/executor.py`, `agents/base_agent.py`, `storage/custom_skills/`.
 
 ## Trạng thái hiện tại
-- **Workflow**: LangGraph ReAct — llm node bind **8 tools**, conditional edge tới ToolNode.
-- **System Prompt**: Dynamic — `BASE_SYSTEM_PROMPT` + **tất cả** skill prompts từ `skill_registry.list_all()`.
-- **Skill System**: 1 tầng phẳng — tất cả skills JSON đều được inject vào llm_node, không phân biệt agent.
+- **Workflow**: LangGraph ReAct — llm node bind **9 tools** (gồm `load_skill`), conditional edge tới ToolNode.
+- **System Prompt**: `BASE_SYSTEM_PROMPT` + **CATALOG** skill (chỉ name+description). Progressive disclosure — body nạp on-demand qua `load_skill`.
+- **Skill System**: file Markdown (`skills/library/*.md`) là source of truth, read-only. Frontmatter name/description + body. Không còn JSON/factory/CRUD.
 - **Tool System**: Code là source of truth — `@tool` decorated functions trong `backend/tools/`. `GET /api/tools` derive từ `TOOLS` list. Không có CRUD tool qua UI.
 - **Chat**: `POST /api/chat` (multipart Form) → LangGraph → tool calls (nếu cần) → `{"response": text, "rich_html": html|null, "word_download_url": url|null}`.
 - **Rich HTML output**: Tool nào tạo HTML lưu vào `_cv_html_store`, trả `__html_id__: {id}`. Frontend hiển thị text + iframe.

@@ -9,7 +9,6 @@ import LoginScreen from './components/login/LoginScreen';
 import ChatWorkspace from './components/chat/ChatWorkspace';
 import SkillManager from './components/admin/SkillManager';
 import ToolRegistry from './components/admin/ToolRegistry';
-import SkillDraftModal from './components/modals/SkillDraftModal';
 import CVProcessor from './components/cv/CVProcessor';
 
 
@@ -26,9 +25,6 @@ function App() {
   /* CHAT STATES */
   const [chatMessages, setChatMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
-
-  /* MODALS STATES */
-  const [skillDraft, setSkillDraft] = useState(null); // Human-in-the-loop review state
 
   /* LIVE SYSTEM LOGS */
   const [systemLogs, setSystemLogs] = useState([]);
@@ -88,6 +84,18 @@ function App() {
         addLog(`Tool fetch failed: ${toolsErr.message}`, "warning");
       }
 
+      // Fetch skills (catalog read-only)
+      try {
+        const skillsRes = await fetch("/api/skills");
+        if (skillsRes.ok) {
+          const skillsData = await skillsRes.json();
+          setSkills(skillsData);
+          addLog(`Loaded ${skillsData.length} skills from backend.`, "success");
+        }
+      } catch (skillsErr) {
+        addLog(`Skill fetch failed: ${skillsErr.message}`, "warning");
+      }
+
       addLog(`Login completed! Role: ${data.role.toUpperCase()}`, "success");
       triggerToast(`Đăng nhập thành công với vai trò ${data.role.toUpperCase()}!`);
     } catch (err) {
@@ -104,94 +112,6 @@ function App() {
     setTools([]);
     addLog(`User logged out from session`, "warning");
     navigate('/login');
-  };
-
-  /* DELETE SKILL VIA BACKEND API */
-  const deleteSkill = async (skillId) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa kỹ năng ${skillId} khỏi hệ thống và ổ đĩa backend?`)) {
-      return;
-    }
-    try {
-      addLog(`Sending request to delete custom skill file: ${skillId}...`, "info");
-      const res = await fetch(`/api/delete_skill?skill_id=${skillId}&user_id=${currentUser.id}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to delete skill");
-      }
-      setSkills(prev => prev.filter(s => s.id !== skillId));
-      addLog(`[SKILL DELETED] Successfully deleted skill file: ${skillId}`, "success");
-      triggerToast(`Đã xóa kỹ năng ${skillId} thành công!`);
-    } catch (err) {
-      addLog(`Error deleting skill: ${err.message}`, "error");
-      alert(`Lỗi khi xóa kỹ năng: ${err.message}`);
-    }
-  };
-
-  /* START SKILL DRAFT COMPILATION VIA BACKEND AI STUDIO API */
-  const handleStartSkillDraft = async (name, description, agent) => {
-    try {
-      addLog(`Submitting natural language description for AI skill drafting...`, "info");
-      const res = await fetch('/api/skills/draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: currentUser.id,
-          agent_id: agent,
-          description: description
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to draft skill");
-      }
-      setSkillDraft(data.skill);
-      addLog(`[HITL STAGE] Compiled AI prompt draft successfully for skill: ${name}`, "success");
-    } catch (err) {
-      addLog(`Error drafting skill: ${err.message}`, "error");
-      alert(`Lỗi biên dịch nháp: ${err.message}`);
-    }
-  };
-
-  /* PUBLISH SKILL AFTER HITL APPROVAL VIA BACKEND DYNAMIC ENGINE */
-  const handlePublishSkill = async () => {
-    if (!skillDraft) return;
-    try {
-      addLog(`Publishing dynamic skill to database and disk configurations...`, "info");
-      const targetAgentId = skillDraft.metadata?.agent_id || 'default';
-
-      const res = await fetch('/api/skills/publish', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: currentUser.id,
-          agent_id: targetAgentId,
-          skill_data: skillDraft
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to publish skill");
-      }
-      
-      // Update local skills registry list dynamically
-      const newSkillObj = {
-        id: data.skill.id,
-        name: data.skill.name,
-        description: data.skill.description,
-        agent: data.skill.target_agent,
-        category: "AI Published",
-        active: true
-      };
-      setSkills(prev => [...prev, newSkillObj]);
-      addLog(`[SKILL PUBLISHED] Successfully compiled custom skill JSON: ${data.skill.id}`, "success");
-      triggerToast(`Đăng ký & xuất bản Kỹ năng ${data.skill.name} thành công!`);
-      setSkillDraft(null);
-    } catch (err) {
-      addLog(`Error publishing skill: ${err.message}`, "error");
-      alert(`Lỗi xuất bản kỹ năng: ${err.message}`);
-    }
   };
 
   /* SEND CHAT MESSAGE & EXECUTE REAL-TIME LANGGRAPH WORKFLOW */
@@ -305,9 +225,6 @@ function App() {
                           <SkillManager
                             activeTab="tab-skills"
                             skills={skills}
-                            agents={{}}
-                            deleteSkill={deleteSkill}
-                            onStartSkillDraft={handleStartSkillDraft}
                           />
                         }
                       />
@@ -330,13 +247,6 @@ function App() {
                   <Route path="*" element={<Navigate to="chat" replace />} />
                 </Routes>
               </div>
-
-              {/* 4. MODALS OVERLAYS */}
-              <SkillDraftModal 
-                skillDraft={skillDraft}
-                setSkillDraft={setSkillDraft}
-                onPublishSkill={handlePublishSkill}
-              />
 
               {/* TOAST NOTIFICATION POPUP */}
               <Toast active={toast.active} message={toast.message} />
