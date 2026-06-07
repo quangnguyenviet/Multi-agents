@@ -65,6 +65,16 @@ function MessageItem({ msg }) {
           </div>
         )}
 
+        {msg.wordDownloadUrl && (
+          <div className="word-download-card">
+            <i className="fa-solid fa-file-word" style={{ marginRight: '8px', fontSize: '18px' }}></i>
+            <span style={{ flex: 1 }}>File CV Word đã sẵn sàng</span>
+            <a href={msg.wordDownloadUrl} download className="word-download-btn">
+              <i className="fa-solid fa-download" style={{ marginRight: '6px' }}></i>Tải về (.docx)
+            </a>
+          </div>
+        )}
+
         <div className="msg-meta">
           <span>{isUser ? 'Người dùng' : msg.agentName}</span> • <span>{msg.timestamp}</span>
         </div>

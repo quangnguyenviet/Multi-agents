@@ -23,16 +23,18 @@
 - [x] **Đơn giản hóa Frontend**: Bỏ agent selection dropdown, bỏ AgentManager UI, bỏ `/admin/agents` route.
 - [x] **Tool Node LangGraph**: Thêm `ToolNode` + conditional edge. Topology: `START → llm → [tools] → llm → END`. 7 tools.
 - [x] **CV Processor tích hợp Chat**: 2 tools `read_cv_file` + `generate_cv_file`. LLM tự gọi tool khi nhận file_id. `/api/chat` đổi sang multipart/form-data. Frontend: nút đính kèm PDF + CV preview card trong chat.
-- [x] **[NEW] Skill → LLM Node Integration**: `_build_system_prompt()` trong `llm_node.py` inject system_prompt từ skills có `agent_id: "llm_node"`. Tạo `cv_processor.json` skill hướng dẫn flow CV. Convention mới: thêm behavior cho LLM = tạo JSON skill, không cần sửa code.
-- [x] **Bug fix llm_node re-entry**: Khi LLM gọi lại sau ToolNode, nay luôn prepend `[SystemMessage, HumanMessage]` vào history để LLM không quên ngữ cảnh gốc (ví dụ: "tạo CV tiếng Việt").
-- [x] **Logging**: Thêm `logging.basicConfig` trong `server.py` + `logger` trong `llm_node.py` — trace được từng bước tool call trong terminal.
-- [x] **Generalize Chat Flow (bỏ hardcode CV)**: Xóa fallback tự gọi `generate_cv_file`. Đổi marker `"cv_id:"` → `"__html_id__:"`. Response API: `{"response": text, "rich_html": html|null}`. Frontend: `msg.richHtml` thay `msg.cvHtml`, CSS class `rich-output-*`. Placeholder "file CV" → "file đính kèm".
+- [x] **Skill → LLM Node Integration**: `_build_system_prompt()` trong `llm_node.py` inject system_prompt từ skills có `agent_id: "llm_node"`. Tạo `cv_processor.json` skill hướng dẫn flow CV.
+- [x] **Bug fix llm_node re-entry**: Khi LLM gọi lại sau ToolNode, nay luôn prepend `[SystemMessage, HumanMessage]` vào history.
+- [x] **Logging**: Thêm `logging.basicConfig` trong `server.py` + `logger` trong `llm_node.py`.
+- [x] **Generalize Chat Flow (bỏ hardcode CV)**: Đổi marker `"cv_id:"` → `"__html_id__:"`. Response API: `{"response": text, "rich_html": html|null}`.
+- [x] **Xuất CV Word (.docx) qua Chat**: Tool `generate_cv_word_file()` tạo Bản Lý Lịch Chuyên Môn — bảng nhân sự, học vấn, kinh nghiệm 2 cột (ngày | chi tiết dự án với Tên Dự án / Vị trí / Công việc thực hiện / Công nghệ sử dụng). Endpoint download `GET /api/cv/download-word/{docx_id}`. Frontend nút tải về. `cv_agent.py` schema thêm `technologies` per experience entry.
 
 ## Trạng thái hiện tại
-- **Workflow**: LangGraph ReAct — llm node bind 7 tools, conditional edge tới ToolNode.
+- **Workflow**: LangGraph ReAct — llm node bind **8 tools**, conditional edge tới ToolNode.
 - **System Prompt**: Dynamic — `BASE_SYSTEM_PROMPT` + skill prompts có `agent_id == "llm_node"` từ `skill_registry`.
-- **Chat**: `POST /api/chat` (multipart Form) → LangGraph → tool calls (nếu cần) → `{"response": text, "rich_html": html|null}`.
-- **Rich HTML output**: Tool nào tạo HTML lưu vào `_cv_html_store`, trả `__html_id__: {id}`. Routes.py quét ToolMessages, trả `rich_html`. Frontend hiển thị text + iframe bên dưới.
+- **Chat**: `POST /api/chat` (multipart Form) → LangGraph → tool calls (nếu cần) → `{"response": text, "rich_html": html|null, "word_download_url": url|null}`.
+- **Rich HTML output**: Tool nào tạo HTML lưu vào `_cv_html_store`, trả `__html_id__: {id}`. Frontend hiển thị text + iframe.
+- **Word output**: Tool `generate_cv_word_file` lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}`. Frontend hiển thị nút tải về `.docx`.
 - **API Backend**: Chat, Skills, Tools, CV Processor trang riêng — tất cả hoạt động.
-- **Frontend**: Chat với file attach + rich HTML card generic. Admin: Skills, Tools.
-- **Việc tiếp theo**: JWT authentication.
+- **Frontend**: Chat với file attach + rich HTML card + Word download card. Admin: Skills, Tools.
+- **Việc tiếp theo**: JWT authentication + TTL cho in-memory stores.

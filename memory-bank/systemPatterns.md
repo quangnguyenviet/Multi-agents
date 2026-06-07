@@ -8,12 +8,12 @@
 - **`llm_node`** (`backend/agents/llm_node.py`):
   - `llm_with_tools = ChatOpenAI(...).bind_tools(TOOLS)` — khởi tạo ở module level
   - `_build_system_prompt()` — gọi mỗi request, ghép `BASE_SYSTEM_PROMPT` + skill prompts từ `skill_registry`
-  - **Lần đầu VÀ re-entry**: đều prepend `[SystemMessage, HumanMessage(query)]` — re-entry thêm `+ existing_messages` để LLM không quên ngữ cảnh gốc
+  - **Lần đầu VÀ re-entry**: đều prepend `[SystemMessage, HumanMessage(query)]` — re-entry thêm `+ existing_messages`
   - `agent_response` chỉ set khi `not response.tool_calls` (turn cuối)
 - **`ToolNode`** (`langgraph.prebuilt`): tự động execute tool calls từ last AIMessage
 - **`tools_condition`** (`langgraph.prebuilt`): conditional edge — `"tools"` nếu có tool_calls, else `END`
 
-### 2. Tool Registry (7 tools hiện tại)
+### 2. Tool Registry (8 tools hiện tại)
 **`backend/tools/company_tools.py`**:
 - `get_company_info()` — đọc `storage/company_info.json`
 - `get_current_datetime()` — ngày giờ hệ thống
@@ -23,55 +23,71 @@
 
 **`backend/tools/cv_tools.py`**:
 - `read_cv_file(file_id)` — tra `_pdf_store[file_id]` → `extract_cv_data()` → JSON string
-- `generate_cv_file(cv_json)` — `json.loads()` → Jinja2 render → `_cv_html_store[cv_id]` → trả `"__html_id__: {id}"`
-- **Convention HTML tool**: bất kỳ tool nào muốn trả rich HTML → lưu vào `_cv_html_store`, trả string chứa `__html_id__: {id}` → routes.py tự detect và forward về frontend
+- `generate_cv_file(cv_json)` — Jinja2 render → `_cv_html_store[cv_id]` → trả `"__html_id__: {id}"`
+- `generate_cv_word_file(cv_json)` — python-docx render Bản Lý Lịch Chuyên Môn → `_cv_docx_store[docx_id]` → trả `"__docx_id__: {id}"`
+- **Convention HTML tool**: lưu vào `_cv_html_store`, trả `__html_id__: {id}`
+- **Convention Word tool**: lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}`
 
 ### 3. Skill → LLM Node Integration (Convention mới)
 - **Convention**: skill có `metadata.agent_id == "llm_node"` → `system_prompt` được inject vào LangGraph workflow
 - **`_build_system_prompt()`** trong `llm_node.py`: import `skill_registry` từ `.instances`, lọc skills theo `agent_id`, ghép prompts
-- **Thêm behavior cho LLM**: tạo JSON file trong `storage/custom_skills/` với `agent_id: "llm_node"` — hiệu lực ngay, không cần restart, không cần sửa code
-- **Ví dụ**: `cv_processor.json` hướng dẫn LLM gọi `read_cv_file → generate_cv_file` khi có file_id
-- Skills cho `BaseAgent` (hr_policies, salary_management...) **không bị ảnh hưởng** — chỉ skills có `agent_id: "llm_node"` mới được inject
+- **Thêm behavior cho LLM**: tạo JSON file trong `storage/custom_skills/` với `agent_id: "llm_node"` — hiệu lực ngay, không cần restart
+- `cv_processor.json` hướng dẫn LLM: nếu yêu cầu HTML → gọi `generate_cv_file`; nếu yêu cầu Word/docx → gọi `generate_cv_word_file`
 
-### 4. Rich HTML Output trong Chat — Flow (Generic)
+### 4. Output Pattern trong Chat — Generic Flow
 ```
 Frontend FormData (user_id, query, file?)
   → POST /api/chat
   → routes.py: lưu PDF vào _pdf_store[file_id], inject file_id vào query
   → chatbot.ainvoke()
   → LangGraph: llm → tool(s) → llm → ... → END
-  → routes.py post-process: quét ngược ToolMessages tìm "__html_id__:", lấy HTML từ _cv_html_store
-  → return {"response": text, "rich_html": html | null}
-  → Frontend App.jsx: botMsg.richHtml = data.rich_html
-  → MessageItem: hiện text bubble + iframe bên dưới nếu richHtml tồn tại
+  → routes.py post-process: quét ngược ToolMessages tìm marker
+      - "__html_id__:" → lấy HTML từ _cv_html_store
+      - "__docx_id__:" → tạo word_download_url = /api/cv/download-word/{id}
+  → return {"response": text, "rich_html": html|null, "word_download_url": url|null}
+  → Frontend App.jsx: botMsg.richHtml, botMsg.wordDownloadUrl
+  → MessageItem: hiện iframe nếu richHtml, hiện nút tải nếu wordDownloadUrl
 ```
-**LLM không gọi generate_cv_file → không có rich_html → chỉ text response. Không có fallback.**
 
 ### 5. Chat Endpoint Pattern
 - **`POST /api/chat`**: `Form(user_id, query)` + `File(file=None)` optional
 - **Không set `Content-Type`** từ frontend — browser tự set `multipart/form-data; boundary=...`
-- Response: `{"response": str, "rich_html": str | null}`
-- Extensible: thêm loại output HTML mới → thêm tool trả `__html_id__:`, không cần sửa routes.py
+- Response: `{"response": str, "rich_html": str|null, "word_download_url": str|null}`
+- **Thêm output format mới**: implement tool → lưu vào store, trả marker `__xxx_id__: {id}` → thêm detect trong routes.py → thêm endpoint serve file
 
-### 6. Skill System (2 tầng)
-- **Tầng 1 — BaseAgent skills** (`agent_id`: hr_policies, salary_management, system_admin, user_management): dùng cho skill enable/disable qua Admin UI (`/api/skills/publish`, `/api/delete_skill`)
-- **Tầng 2 — LLM Node skills** (`agent_id`: llm_node): inject system_prompt vào LangGraph, ảnh hưởng trực tiếp đến hành vi LLM trong chat
-- Cả 2 tầng đều lưu trên đĩa dưới dạng JSON tại `storage/custom_skills/`
+### 6. Word Document Format — Bản Lý Lịch Chuyên Môn
+Cấu trúc Word output (python-docx):
+1. Tiêu đề "BẢN LÝ LỊCH CHUYÊN MÔN CỦA NHÂN SỰ CHỦ CHỐT" (căn giữa, bold, navy)
+2. "Vị trí: [experience[0].position]"
+3. Bảng 3 cột (`Table Grid`): `Thông tin nhân sự | Tên/Email/ĐT | Ngày sinh/Địa chỉ`
+4. "Trình độ chuyên môn: [degree field] - [institution]"
+5. Section heading "KINH NGHIỆM CHUYÊN MÔN"
+6. Mỗi experience entry: bảng 2 cột — cột trái (ngày ~3.8cm) | cột phải (14.2cm):
+   - **Tên Dự án**: `company`
+   - **Vị trí công việc**: `position`
+   - **Công việc thực hiện**: bullets từ `description[]`
+   - **Công nghệ sử dụng**: `technologies` (field mới trong cv_agent.py schema)
+7. Kỹ năng / Ngoại ngữ / Chứng chỉ (nếu có)
 
-### 7. Kiến trúc ReactJS Client
-- **`App.jsx`**: `handleSendMessage(text, file=null)` — luôn dùng FormData; `botMsg.richHtml = data.rich_html || null`
-- **`ChatInputBar.jsx`**: state `attachedFile`, nút 📎, file badge với ✕, placeholder generic "file đính kèm"
-- **`MessageItem.jsx`**: luôn hiển thị `msg-bubble` (text); hiển thị thêm `rich-output-card` (iframe) nếu `msg.richHtml` tồn tại
-- **Chat flow**: `POST /api/chat` (FormData) → `{response, rich_html?}` → append bot message với optional richHtml
+### 7. Skill System (2 tầng)
+- **Tầng 1 — BaseAgent skills** (`agent_id`: hr_policies, salary_management, system_admin, user_management)
+- **Tầng 2 — LLM Node skills** (`agent_id`: llm_node): inject system_prompt vào LangGraph
+- Cả 2 tầng lưu trên đĩa dưới dạng JSON tại `storage/custom_skills/`
 
-### 8. Tích hợp LLM & Proxy
+### 8. Kiến trúc ReactJS Client
+- **`App.jsx`**: `handleSendMessage(text, file=null)` — FormData; `botMsg.richHtml`, `botMsg.wordDownloadUrl`
+- **`ChatInputBar.jsx`**: state `attachedFile`, nút đính kèm, file badge
+- **`MessageItem.jsx`**: `msg-bubble` (text) + `rich-output-card` (iframe nếu richHtml) + `word-download-card` (nút tải nếu wordDownloadUrl)
+
+### 9. Tích hợp LLM & Proxy
 - **9Router LLM Proxy**: `http://172.31.2.23:20128/v1`, model `evotek_flash`
-- **Vite Proxy**: Dev port 3000 → Backend port 8000 (loại bỏ CORS)
+- **Vite Proxy**: Dev port 3000 → Backend port 8000
 - **FastAPI Static**: Serve React build từ `/frontend/dist/`
 
-### 9. CV Processor Pipeline (Standalone — trang riêng vẫn hoạt động)
-- `POST /api/cv/extract`: pdfplumber → LLM (9Router) → JSON có cấu trúc
-- `POST /api/cv/render`: JSON data → Jinja2 template → HTML A4 2 cột
+### 10. CV Processor Pipeline
+- `POST /api/cv/extract`: pdfplumber → LLM (9Router) → JSON có cấu trúc (incl. `technologies` per experience)
+- `POST /api/cv/render`: JSON data → Jinja2 → HTML A4 2 cột
+- `GET /api/cv/download-word/{docx_id}`: `_cv_docx_store[docx_id]` → StreamingResponse `.docx`
 
 ## File Structure Backend
 ```
@@ -79,19 +95,21 @@ backend/
 ├── agents/
 │   ├── workflow.py         ← build_multi_agent_system(), chatbot
 │   ├── workflow_state.py   ← MultiAgentState TypedDict (5 fields)
-│   ├── llm_node.py         ← llm_node + TOOLS (7) + _build_system_prompt()
+│   ├── llm_node.py         ← llm_node + TOOLS (8) + _build_system_prompt()
 │   ├── base_agent.py       ← BaseAgent class (skill execution)
 │   ├── instances.py        ← skill_registry, 4 BaseAgent instances
 │   └── __init__.py
 ├── tools/
 │   ├── company_tools.py    ← 5 general tools
-│   └── cv_tools.py         ← read_cv_file, generate_cv_file + in-memory stores
+│   └── cv_tools.py         ← read_cv_file, generate_cv_file, generate_cv_word_file
+│                              + _pdf_store, _cv_html_store, _cv_docx_store
 ├── storage/
-│   ├── company_info.json   ← dữ liệu công ty
-│   └── custom_skills/      ← JSON skills (agent_id: llm_node | hr_policies | ...)
-│       └── cv_processor.json ← skill hướng dẫn CV flow cho llm_node
+│   ├── company_info.json
+│   └── custom_skills/
+│       └── cv_processor.json  ← skill llm_node: HTML hoặc Word tùy yêu cầu
 ├── cv_agent.py             ← extract_cv_data() — PHẢI ở backend/ root
+│                              schema experience có trường technologies
 └── api/
-    ├── routes.py           ← /chat (Form+File), skills, tools, agents
-    └── cv_routes.py        ← /cv/extract, /cv/render (standalone)
+    ├── routes.py           ← /chat (Form+File), detect __html_id__ + __docx_id__
+    └── cv_routes.py        ← /cv/extract, /cv/render, /cv/download-word/{id}
 ```

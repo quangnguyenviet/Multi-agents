@@ -3,8 +3,9 @@
 ## Công nghệ sử dụng
 - **Backend Core**: Python 3.10+, FastAPI, Uvicorn.
 - **Orchestration**: LangGraph (StateGraph, conditional edges).
-- **AI Integration**: LangChain (`langchain_openai`), ChatOpenAI qua **9Router** proxy (endpoint nội bộ `http://172.31.2.23:20128/v1`, model `evotek_flash`). 9Router cung cấp token saving, format translation, và multi-tier fallback giữa các provider.
-- **Frontend Framework**: ReactJS (Vite, HSL CSS variables, Vanilla CSS for maximum flexibility).
+- **AI Integration**: LangChain (`langchain_openai`), ChatOpenAI qua **9Router** proxy (endpoint nội bộ `http://172.31.2.23:20128/v1`, model `evotek_flash`).
+- **Document Generation**: `python-docx` — tạo file Word (.docx) cho Bản Lý Lịch Chuyên Môn.
+- **Frontend Framework**: ReactJS (Vite, HSL CSS variables, Vanilla CSS).
 - **Lưu trữ**: SQLite database (`data/company.db`) phục vụ dữ liệu nghiệp vụ, và File-system JSON (`storage/custom_skills/`) cho cấu hình kỹ năng.
 
 ## Môi trường & Khởi chạy

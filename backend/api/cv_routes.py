@@ -1,11 +1,13 @@
+import io
 import os
 import traceback
 from fastapi import APIRouter, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import Any, Dict
 
 from cv_agent import extract_cv_data
+from tools.cv_tools import _cv_docx_store
 
 cv_router = APIRouter()
 
@@ -50,3 +52,16 @@ async def render_cv(req: RenderRequest):
         return HTMLResponse(content=html)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi render template: {str(e)}")
+
+
+@cv_router.get("/cv/download-word/{docx_id}")
+async def download_cv_word(docx_id: str):
+    """Tải về file CV Word (.docx) đã được tạo bởi generate_cv_word_file tool."""
+    docx_bytes = _cv_docx_store.get(docx_id)
+    if not docx_bytes:
+        raise HTTPException(status_code=404, detail="File không tồn tại hoặc đã hết hạn.")
+    return StreamingResponse(
+        io.BytesIO(docx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename=cv_{docx_id}.docx"},
+    )

@@ -11,7 +11,7 @@ from tools.company_tools import (
     get_company_employee_list,
     get_demo_users_list,
 )
-from tools.cv_tools import read_cv_file, generate_cv_file
+from tools.cv_tools import read_cv_file, generate_cv_file, generate_cv_word_file
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ BASE_SYSTEM_PROMPT = (
 TOOLS = [
     get_company_info, get_current_datetime, calculate,
     get_company_employee_list, get_demo_users_list,
-    read_cv_file, generate_cv_file,
+    read_cv_file, generate_cv_file, generate_cv_word_file,
 ]
 
 llm_with_tools = ChatOpenAI(

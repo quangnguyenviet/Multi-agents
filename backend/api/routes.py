@@ -7,7 +7,7 @@ from langchain_core.messages import ToolMessage
 from data import database as db
 from config.settings import settings
 from skills.base import Skill, SkillType, Parameter, Permission
-from tools.cv_tools import _pdf_store, _cv_html_store
+from tools.cv_tools import _pdf_store, _cv_html_store, _cv_docx_store
 
 # Import storage modules
 from storage import agent_store, tool_store
@@ -105,21 +105,32 @@ async def chat(
 
         # Tìm HTML output từ bất kỳ tool nào trả về __html_id__
         rich_html = None
+        word_download_url = None
         messages = result.get("messages", [])
         for msg in reversed(messages):
-            if isinstance(msg, ToolMessage) and "__html_id__:" in (msg.content or ""):
-                html_id = msg.content.split("__html_id__:")[-1].strip().split()[0]
+            content = msg.content or ""
+            if not isinstance(msg, ToolMessage):
+                continue
+            if rich_html is None and "__html_id__:" in content:
+                html_id = content.split("__html_id__:")[-1].strip().split()[0]
                 rich_html = _cv_html_store.get(html_id)
-                if rich_html:
-                    break
+            if word_download_url is None and "__docx_id__:" in content:
+                docx_id = content.split("__docx_id__:")[-1].strip().split()[0]
+                if docx_id in _cv_docx_store:
+                    word_download_url = f"/api/cv/download-word/{docx_id}"
+            if rich_html and word_download_url:
+                break
 
         if file_id:
             _pdf_store.pop(file_id, None)
 
         final_response = result.get("agent_response", "")
+        response_data: dict = {"response": final_response}
         if rich_html:
-            return {"response": final_response, "rich_html": rich_html}
-        return {"response": final_response}
+            response_data["rich_html"] = rich_html
+        if word_download_url:
+            response_data["word_download_url"] = word_download_url
+        return response_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi chatbot: {e}")
 

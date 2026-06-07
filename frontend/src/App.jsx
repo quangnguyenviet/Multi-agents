@@ -303,6 +303,7 @@ function App() {
         avatarAbbr: "AI",
         text: data.response,
         richHtml: data.rich_html || null,
+        wordDownloadUrl: data.word_download_url || null,
         skillTag: "LangGraph Engine",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };

@@ -860,6 +860,32 @@ body {
 }
 .rich-output-print-btn:hover { opacity: 0.85; }
 
+.word-download-card {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+    background: rgba(43, 87, 154, 0.12);
+    border: 1px solid rgba(43, 87, 154, 0.3);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.word-download-btn {
+    background: #2b579a;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+.word-download-btn:hover { background: #1e3f72; color: #fff; }
+
 /* -----------------------------------------
    4B. TAB 2: AGENT MANAGER (ADMIN ONLY)
 ----------------------------------------- */

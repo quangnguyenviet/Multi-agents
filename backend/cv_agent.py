@@ -29,7 +29,8 @@ JSON Schema cần trả về:
       "position": "string",
       "start_date": "string",
       "end_date": "string",
-      "description": ["string"]
+      "description": ["string"],
+      "technologies": "string|null"
     }
   ],
   "education": [
