@@ -29,14 +29,16 @@
 - [x] **Generalize Chat Flow (bỏ hardcode CV)**: Đổi marker `"cv_id:"` → `"__html_id__:"`. Response API: `{"response": text, "rich_html": html|null}`.
 - [x] **Xuất CV Word (.docx) qua Chat**: Tool `generate_cv_word_file()` tạo Bản Lý Lịch Chuyên Môn — bảng nhân sự, học vấn, kinh nghiệm 2 cột (ngày | chi tiết dự án với Tên Dự án / Vị trí / Công việc thực hiện / Công nghệ sử dụng). Endpoint download `GET /api/cv/download-word/{docx_id}`. Frontend nút tải về. `cv_agent.py` schema thêm `technologies` per experience entry.
 - [x] **Xóa toàn bộ phần đa agent**: Bỏ 4 BaseAgent instances, bỏ `agent_id` routing trong skill system, bỏ filter `agent_id == "llm_node"`. `_build_system_prompt()` giờ load tất cả skills. Bỏ `GET /api/agents`, thêm `GET /api/user`. Đơn giản hóa tất cả skill endpoints và `main.py` CLI.
+- [x] **Tool Registry theo coding agent pattern**: Xóa `storage/tool_store.py` + `storage/tools.json`. `GET /api/tools` giờ derive trực tiếp từ `TOOLS` list trong `llm_node.py` — trả về name + description từ docstring của `@tool` function. Xóa POST/PUT/DELETE tool endpoints. `ToolRegistry.jsx` redesign thành read-only display. Thêm tool mới = viết Python function.
 
 ## Trạng thái hiện tại
 - **Workflow**: LangGraph ReAct — llm node bind **8 tools**, conditional edge tới ToolNode.
 - **System Prompt**: Dynamic — `BASE_SYSTEM_PROMPT` + **tất cả** skill prompts từ `skill_registry.list_all()`.
 - **Skill System**: 1 tầng phẳng — tất cả skills JSON đều được inject vào llm_node, không phân biệt agent.
+- **Tool System**: Code là source of truth — `@tool` decorated functions trong `backend/tools/`. `GET /api/tools` derive từ `TOOLS` list. Không có CRUD tool qua UI.
 - **Chat**: `POST /api/chat` (multipart Form) → LangGraph → tool calls (nếu cần) → `{"response": text, "rich_html": html|null, "word_download_url": url|null}`.
 - **Rich HTML output**: Tool nào tạo HTML lưu vào `_cv_html_store`, trả `__html_id__: {id}`. Frontend hiển thị text + iframe.
 - **Word output**: Tool `generate_cv_word_file` lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}`. Frontend hiển thị nút tải về `.docx`.
-- **API Backend**: Chat, Skills, Tools, CV Processor — tất cả hoạt động.
-- **Frontend**: Chat với file attach + rich HTML card + Word download card. Admin: Skills, Tools.
+- **API Backend**: Chat, Skills, Tools (read-only), CV Processor — tất cả hoạt động.
+- **Frontend**: Chat với file attach + rich HTML card + Word download card. Admin: Skills, Tools (read-only display).
 - **Việc tiếp theo**: JWT authentication + TTL cho in-memory stores.

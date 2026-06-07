@@ -13,7 +13,9 @@
 - **`ToolNode`** (`langgraph.prebuilt`): tự động execute tool calls từ last AIMessage
 - **`tools_condition`** (`langgraph.prebuilt`): conditional edge — `"tools"` nếu có tool_calls, else `END`
 
-### 2. Tool Registry (8 tools hiện tại)
+### 2. Tool Registry (8 tools — coding agent pattern)
+**Source of truth**: `@tool` decorated Python functions trong `backend/tools/`. Docstring = description hiển thị trên UI và gửi cho LLM.
+
 **`backend/tools/company_tools.py`**:
 - `get_company_info()` — đọc `storage/company_info.json`
 - `get_current_datetime()` — ngày giờ hệ thống
@@ -27,6 +29,11 @@
 - `generate_cv_word_file(cv_json)` — python-docx render Bản Lý Lịch Chuyên Môn → `_cv_docx_store[docx_id]` → trả `"__docx_id__: {id}"`
 - **Convention HTML tool**: lưu vào `_cv_html_store`, trả `__html_id__: {id}`
 - **Convention Word tool**: lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}`
+
+**Tool API**:
+- `GET /api/tools` → derive từ `TOOLS` list trong `llm_node.py`, trả `{id, name, description, active: true}`
+- **Không có** POST/PUT/DELETE — tools là code, không configurable qua UI
+- **Thêm tool mới**: viết `@tool` function → import vào `llm_node.py` → thêm vào `TOOLS = [...]` → restart server
 
 ### 3. Skill → LLM Node Integration
 - **`_build_system_prompt()`** trong `llm_node.py`: import `skill_registry` từ `.instances`, ghép `system_prompt` của **tất cả** skills từ `skill_registry.list_all()`
@@ -96,20 +103,20 @@ backend/
 │   ├── workflow.py         ← build_multi_agent_system(), chatbot
 │   ├── workflow_state.py   ← MultiAgentState TypedDict (5 fields)
 │   ├── llm_node.py         ← llm_node + TOOLS (8) + _build_system_prompt()
-│   ├── base_agent.py       ← BaseAgent class (skill execution)
-│   ├── instances.py        ← skill_registry, 4 BaseAgent instances
+│   ├── base_agent.py       ← giữ lại nhưng không dùng
+│   ├── instances.py        ← skill_registry + skill_factory + SkillLoader
 │   └── __init__.py
-├── tools/
-│   ├── company_tools.py    ← 5 general tools
+├── tools/                  ← SOURCE OF TRUTH cho tool registry
+│   ├── company_tools.py    ← 5 general @tool functions
 │   └── cv_tools.py         ← read_cv_file, generate_cv_file, generate_cv_word_file
 │                              + _pdf_store, _cv_html_store, _cv_docx_store
 ├── storage/
 │   ├── company_info.json
 │   └── custom_skills/
-│       └── cv_processor.json  ← skill llm_node: HTML hoặc Word tùy yêu cầu
+│       └── cv_processor.json  ← skill: HTML hoặc Word tùy yêu cầu
 ├── cv_agent.py             ← extract_cv_data() — PHẢI ở backend/ root
 │                              schema experience có trường technologies
 └── api/
-    ├── routes.py           ← /chat (Form+File), detect __html_id__ + __docx_id__
+    ├── routes.py           ← /chat (Form+File), /tools (read-only), detect markers
     └── cv_routes.py        ← /cv/extract, /cv/render, /cv/download-word/{id}
 ```

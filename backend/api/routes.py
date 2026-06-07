@@ -10,14 +10,17 @@ from skills.base import Skill, SkillType, Parameter, Permission
 from tools.cv_tools import _pdf_store, _cv_html_store, _cv_docx_store
 
 # Import storage modules
-from storage import agent_store, tool_store
+from storage import agent_store
 
 # Import Pydantic schemas
 from .models import CreateSkillRequest, PublishSkillRequest
-from .models import AgentPromptRequest, CreateAgentRequest, CreateToolRequest, UpdateToolRequest
+from .models import AgentPromptRequest, CreateAgentRequest
 
 # Import skill registry, factory and chatbot graph
 from agents import chatbot, skill_registry, skill_factory
+
+# Import TOOLS list (source of truth for tool registry)
+from agents.llm_node import TOOLS
 
 router = APIRouter()
 
@@ -219,81 +222,21 @@ async def delete_skill(skill_id: str, user_id: str):
 
 
 # ============================================================
-# TOOL API ENDPOINTS
+# TOOL API ENDPOINTS (read-only — source of truth là code)
 # ============================================================
 
 @router.get("/tools")
 async def get_tools():
-    """Return all tools from the persistent store."""
-    tools = tool_store.load_tools()
-    return tools
-
-
-@router.post("/tools")
-async def create_tool(req: CreateToolRequest):
-    """Create a new tool (admin only)."""
-    user_info = db.get_user_info(req.user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    if user_info["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền tạo tool mới")
-
-    clean_id = req.id.strip().lower().replace(" ", "_")
-    try:
-        new_tool = tool_store.add_tool({
-            "id": clean_id,
-            "name": clean_id,
-            "icon": req.icon,
-            "description": req.description,
-            "agent": req.agent,
-            "category": req.category,
-            "created_by": user_info["name"]
-        })
-        return {"success": True, "tool": new_tool}
-    except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-
-
-@router.put("/tools/{tool_id}")
-async def update_tool(tool_id: str, req: UpdateToolRequest):
-    """Update a tool (admin only). Supports toggling active, editing description/category/agent."""
-    user_info = db.get_user_info(req.user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    if user_info["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền cập nhật tool")
-
-    updates = {}
-    if req.active is not None:
-        updates["active"] = req.active
-    if req.description is not None:
-        updates["description"] = req.description
-    if req.category is not None:
-        updates["category"] = req.category
-    if req.agent is not None:
-        updates["agent"] = req.agent
-
-    try:
-        updated_tool = tool_store.update_tool(tool_id, updates)
-        return {"success": True, "tool": updated_tool}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-
-
-@router.delete("/tools/{tool_id}")
-async def delete_tool(tool_id: str, user_id: str = Query(...)):
-    """Delete a tool (admin only)."""
-    user_info = db.get_user_info(user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    if user_info["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền xóa tool")
-
-    try:
-        tool_store.delete_tool(tool_id)
-        return {"success": True, "message": f"Đã xóa thành công tool {tool_id}"}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    """Return tools derived from the actual TOOLS list bound to the LLM."""
+    return [
+        {
+            "id": t.name,
+            "name": t.name,
+            "description": t.description,
+            "active": True,
+        }
+        for t in TOOLS
+    ]
 
 
 # ============================================================

@@ -9,7 +9,6 @@ import LoginScreen from './components/login/LoginScreen';
 import ChatWorkspace from './components/chat/ChatWorkspace';
 import SkillManager from './components/admin/SkillManager';
 import ToolRegistry from './components/admin/ToolRegistry';
-import ToolModal from './components/modals/ToolModal';
 import SkillDraftModal from './components/modals/SkillDraftModal';
 import CVProcessor from './components/cv/CVProcessor';
 
@@ -29,7 +28,6 @@ function App() {
   const [isTyping, setIsTyping] = useState(false);
 
   /* MODALS STATES */
-  const [toolModalOpen, setToolModalOpen] = useState(false);
   const [skillDraft, setSkillDraft] = useState(null); // Human-in-the-loop review state
 
   /* LIVE SYSTEM LOGS */
@@ -106,80 +104,6 @@ function App() {
     setTools([]);
     addLog(`User logged out from session`, "warning");
     navigate('/login');
-  };
-
-  /* TOGGLE TOOL ACTIVE STATUS VIA BACKEND API */
-  const toggleToolStatus = async (toolId) => {
-    const tool = tools.find(t => t.id === toolId);
-    if (!tool) return;
-    const nextActive = !tool.active;
-    try {
-      const res = await fetch(`/api/tools/${toolId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: currentUser.id, active: nextActive })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to toggle tool");
-      }
-      setTools(prev => prev.map(t => t.id === toolId ? { ...t, active: nextActive } : t));
-      addLog(`Tool [${toolId}] set to ${nextActive ? "ACTIVATED" : "DEACTIVATED"}`, nextActive ? "success" : "warning");
-      triggerToast(`Đã ${nextActive ? 'kích hoạt' : 'tắt'} Tool ${toolId} thành công!`);
-    } catch (err) {
-      addLog(`Error toggling tool: ${err.message}`, "error");
-      alert(`Lỗi cập nhật tool: ${err.message}`);
-    }
-  };
-
-  /* DELETE TOOL VIA BACKEND API */
-  const deleteTool = async (toolId) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa tool ${toolId}?`)) return;
-    try {
-      const res = await fetch(`/api/tools/${toolId}?user_id=${currentUser.id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to delete tool");
-      }
-      setTools(prev => prev.filter(t => t.id !== toolId));
-      addLog(`Deleted Tool calling schema: ${toolId}`, "warning");
-      triggerToast(`Đã xóa tool ${toolId} thành công!`);
-    } catch (err) {
-      addLog(`Error deleting tool: ${err.message}`, "error");
-      alert(`Lỗi xóa tool: ${err.message}`);
-    }
-  };
-
-  /* CREATE DYNAMIC TOOL VIA BACKEND API */
-  const handleCreateTool = async (toolData) => {
-    const { id, icon, description, agent, category } = toolData;
-    const cleanId = id.trim().toLowerCase().replace(/\s+/g, '_');
-    try {
-      addLog(`Creating tool [${cleanId}] via API...`, "info");
-      const res = await fetch('/api/tools', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: currentUser.id,
-          id: cleanId,
-          icon: icon || "fa-globe",
-          description: description || "Mô tả tác vụ mặc định của tool gọi ngoài.",
-          agent,
-          category
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to create tool");
-      }
-      const created = data.tool;
-      setTools(prev => [...prev, created]);
-      addLog(`[REGISTERED TOOL] New tool calling schema registered: ${cleanId}`, "success");
-      triggerToast(`Đăng ký và liên kết Tool ${cleanId} thành công!`);
-    } catch (err) {
-      addLog(`Error creating tool: ${err.message}`, "error");
-      alert(`Lỗi tạo tool: ${err.message}`);
-    }
   };
 
   /* DELETE SKILL VIA BACKEND API */
@@ -393,10 +317,6 @@ function App() {
                           <ToolRegistry
                             activeTab="tab-tools"
                             tools={tools}
-                            agents={{}}
-                            toggleToolStatus={toggleToolStatus}
-                            deleteTool={deleteTool}
-                            setToolModalOpen={setToolModalOpen}
                           />
                         }
                       />
@@ -412,13 +332,6 @@ function App() {
               </div>
 
               {/* 4. MODALS OVERLAYS */}
-              <ToolModal
-                isOpen={toolModalOpen}
-                onClose={() => setToolModalOpen(false)}
-                agents={{}}
-                onCreateTool={handleCreateTool}
-              />
-
               <SkillDraftModal 
                 skillDraft={skillDraft}
                 setSkillDraft={setSkillDraft}

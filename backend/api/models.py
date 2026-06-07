@@ -28,17 +28,3 @@ class CreateAgentRequest(BaseModel):
     welcome: str = ""
     system_prompt: str = ""
 
-class CreateToolRequest(BaseModel):
-    user_id: str
-    id: str
-    icon: str = "fa-globe"
-    description: str = ""
-    agent: str = "system_admin"
-    category: str = "Database Query"
-
-class UpdateToolRequest(BaseModel):
-    user_id: str
-    active: Optional[bool] = None
-    description: Optional[str] = None
-    category: Optional[str] = None
-    agent: Optional[str] = None

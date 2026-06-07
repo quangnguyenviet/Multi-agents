@@ -57,6 +57,22 @@ backend/tools/
 - Tool trả Word file: lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}` → routes.py tạo `word_download_url`
 - Login frontend gọi `GET /api/user?user_id=...` (không còn `/api/agents`)
 
+## Cấu trúc Tool System hiện tại (coding agent pattern)
+```
+Thêm tool mới:
+  1. Viết @tool function trong backend/tools/*.py
+  2. Import vào backend/agents/llm_node.py
+  3. Thêm vào TOOLS = [...] list
+  4. Restart server → GET /api/tools tự hiển thị tool mới
+
+Không còn:
+  - storage/tool_store.py (đã xóa)
+  - storage/tools.json (đã xóa)
+  - POST/PUT/DELETE /api/tools (đã xóa)
+  - ToolModal.jsx (đã xóa khỏi App.jsx)
+  - toggleToolStatus / deleteTool handlers trong App.jsx (đã xóa)
+```
+
 ## Nhiệm vụ tiếp theo
 - **Xác thực JWT**: Nâng cấp phân quyền từ `user_id` form param hiện tại sang Token JWT bảo mật
 - **Cleanup in-memory store**: Thêm TTL/auto-cleanup cho `_cv_html_store` và `_cv_docx_store` để tránh memory leak
