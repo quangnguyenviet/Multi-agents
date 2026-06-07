@@ -67,7 +67,7 @@ function App() {
     try {
       addLog(`Authenticating User ID: ${userId}...`, "info");
 
-      const res = await fetch(`/api/agents?user_id=${userId}`);
+      const res = await fetch(`/api/user?user_id=${userId}`);
       if (!res.ok) throw new Error("Không thể kết nối đến máy chủ backend!");
       const data = await res.json();
 

@@ -25,11 +25,7 @@ class SkillLoader:
                     # Parse dữ liệu JSON thành đối tượng Pydantic Skill
                     skill = Skill(**data)
                     
-                    # Lấy thông tin agent được cấu hình cho skill này từ metadata
-                    agent_id = skill.metadata.get("agent_id", "salary_management")
-                    
-                    # Đăng ký skill vào registry
-                    registry.register(skill, [agent_id])
+                    registry.register(skill, [])
                     print(f"📦 Loaded custom skill: {skill.name} from {filename}")
                 except Exception as e:
                     print(f"⚠️ Error loading custom skill {filename}: {e}")

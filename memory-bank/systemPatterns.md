@@ -28,10 +28,9 @@
 - **Convention HTML tool**: lưu vào `_cv_html_store`, trả `__html_id__: {id}`
 - **Convention Word tool**: lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}`
 
-### 3. Skill → LLM Node Integration (Convention mới)
-- **Convention**: skill có `metadata.agent_id == "llm_node"` → `system_prompt` được inject vào LangGraph workflow
-- **`_build_system_prompt()`** trong `llm_node.py`: import `skill_registry` từ `.instances`, lọc skills theo `agent_id`, ghép prompts
-- **Thêm behavior cho LLM**: tạo JSON file trong `storage/custom_skills/` với `agent_id: "llm_node"` — hiệu lực ngay, không cần restart
+### 3. Skill → LLM Node Integration
+- **`_build_system_prompt()`** trong `llm_node.py`: import `skill_registry` từ `.instances`, ghép `system_prompt` của **tất cả** skills từ `skill_registry.list_all()`
+- **Thêm behavior cho LLM**: tạo JSON file bất kỳ trong `storage/custom_skills/` — có hiệu lực ngay, không cần restart, không cần khai báo `agent_id`
 - `cv_processor.json` hướng dẫn LLM: nếu yêu cầu HTML → gọi `generate_cv_file`; nếu yêu cầu Word/docx → gọi `generate_cv_word_file`
 
 ### 4. Output Pattern trong Chat — Generic Flow
@@ -69,10 +68,11 @@ Cấu trúc Word output (python-docx):
    - **Công nghệ sử dụng**: `technologies` (field mới trong cv_agent.py schema)
 7. Kỹ năng / Ngoại ngữ / Chứng chỉ (nếu có)
 
-### 7. Skill System (2 tầng)
-- **Tầng 1 — BaseAgent skills** (`agent_id`: hr_policies, salary_management, system_admin, user_management)
-- **Tầng 2 — LLM Node skills** (`agent_id`: llm_node): inject system_prompt vào LangGraph
-- Cả 2 tầng lưu trên đĩa dưới dạng JSON tại `storage/custom_skills/`
+### 7. Skill System (1 tầng phẳng)
+- Tất cả skills lưu dưới dạng JSON tại `storage/custom_skills/`
+- Tất cả đều được inject vào `_build_system_prompt()` — không phân biệt agent_id
+- `SkillLoader` đăng ký với `registry.register(skill, [])` — không routing
+- `GET /api/skills` trả toàn bộ skills, không filter
 
 ### 8. Kiến trúc ReactJS Client
 - **`App.jsx`**: `handleSendMessage(text, file=null)` — FormData; `botMsg.richHtml`, `botMsg.wordDownloadUrl`

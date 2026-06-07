@@ -16,64 +16,34 @@ from storage import agent_store, tool_store
 from .models import CreateSkillRequest, PublishSkillRequest
 from .models import AgentPromptRequest, CreateAgentRequest, CreateToolRequest, UpdateToolRequest
 
-# Import Agent instances and chatbot graph
-from agents import (
-    chatbot,
-    skill_registry,
-    skill_factory,
-    hr_agent_with_skills,
-    salary_agent_with_skills,
-    system_admin_agent_with_skills,
-    user_management_agent_with_skills
-)
+# Import skill registry, factory and chatbot graph
+from agents import chatbot, skill_registry, skill_factory
 
 router = APIRouter()
 
-# API get user info and agent RBAC status
-@router.get("/agents")
-async def get_agents(user_id: str = Query(...)):
+# API get user info (dùng cho login)
+@router.get("/user")
+async def get_user(user_id: str = Query(...)):
     user_info = db.get_user_info(user_id)
     if not user_info:
         raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    role = user_info["role"]
-
-    agents_list = agent_store.get_agents_for_user(role)
-
     return {
         "user_id": user_id,
         "name": user_info["name"],
-        "role": role,
-        "agents": agents_list
+        "role": user_info["role"],
     }
 
-# API get skills for agent
+# API get all skills
 @router.get("/skills")
-async def get_skills(agent_id: str = Query(...), user_id: str = Query(...)):
-    user_info = db.get_user_info(user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    role = user_info["role"]
-    
-    # Check permission
-    role_permissions = {
-        "employee": ["hr_policies", "salary_management"],
-        "accountant": ["hr_policies", "salary_management", "user_management"],
-        "admin": ["hr_policies", "salary_management", "system_admin", "user_management"]
-    }
-    
-    allowed = role_permissions.get(role, [])
-    if agent_id not in allowed:
-        raise HTTPException(status_code=403, detail="Không có quyền xem kỹ năng của Agent này")
-        
-    skills = skill_registry.get_skills_for_agent(agent_id, role)
-    
+async def get_skills():
     return [
         {
             "id": s.id,
             "name": s.name,
             "description": s.description,
-            "required_roles": s.permission.required_roles
-        } for s in skills
+            "system_prompt": s.system_prompt,
+        }
+        for s in skill_registry.list_all()
     ]
 
 # API chat with Multi-Agent system
@@ -142,25 +112,16 @@ async def draft_skill(req: CreateSkillRequest):
         raise HTTPException(status_code=404, detail="User ID không tồn tại")
     role = user_info["role"]
     name = user_info["name"]
-    
+
     if role != "admin":
         raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền thiết kế nháp skill mới")
-        
-    valid_agents = ["hr_policies", "salary_management", "system_admin", "user_management"]
-    if req.agent_id not in valid_agents:
-        raise HTTPException(status_code=400, detail=f"Agent ID `{req.agent_id}` không hợp lệ")
-        
+
     try:
-        # Build using SkillFactory (chỉ sinh nháp, không lưu hay đăng ký)
         draft = await skill_factory.create_from_description(
             user_description=req.description,
-            agent_id=req.agent_id,
             created_by=name
         )
-        return {
-            "success": True,
-            "skill": draft.model_dump()
-        }
+        return {"success": True, "skill": draft.model_dump()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi thiết kế nháp skill: {e}")
 
@@ -170,19 +131,11 @@ async def publish_skill(req: PublishSkillRequest):
     user_info = db.get_user_info(req.user_id)
     if not user_info:
         raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    role = user_info["role"]
-    
-    if role != "admin":
+    if user_info["role"] != "admin":
         raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền xuất bản skill")
-        
-    valid_agents = ["hr_policies", "salary_management", "system_admin", "user_management"]
-    if req.agent_id not in valid_agents:
-        raise HTTPException(status_code=400, detail=f"Agent ID `{req.agent_id}` không hợp lệ")
-        
+
     try:
         skill_data = req.skill_data
-        
-        # Parse cấu hình JSON đã duyệt ngược lại thành đối tượng Pydantic Skill
         published_skill = Skill(
             id=skill_data["id"],
             name=skill_data["name"],
@@ -197,35 +150,15 @@ async def publish_skill(req: PublishSkillRequest):
             created_at=datetime.now(),
             created_by=user_info["name"]
         )
-        
-        # Đăng ký vào registry bộ nhớ
-        skill_registry.register(published_skill, [req.agent_id])
-        
-        # Kích hoạt trên agent đang chạy
-        if req.agent_id == "hr_policies":
-            hr_agent_with_skills.enable_skill(published_skill.id)
-        elif req.agent_id == "salary_management":
-            salary_agent_with_skills.enable_skill(published_skill.id)
-        elif req.agent_id == "system_admin":
-            system_admin_agent_with_skills.enable_skill(published_skill.id)
-        elif req.agent_id == "user_management":
-            user_management_agent_with_skills.enable_skill(published_skill.id)
-            
-        # Ghi tệp cấu hình JSON xuống ổ đĩa
+
+        skill_registry.register(published_skill, [])
+
         skill_file = os.path.join(settings.SKILLS_DIR, f"{published_skill.id}.json")
         os.makedirs(os.path.dirname(skill_file), exist_ok=True)
         with open(skill_file, "w", encoding="utf-8") as f:
             f.write(published_skill.model_dump_json(indent=4))
-            
-        return {
-            "success": True,
-            "skill": {
-                "id": published_skill.id,
-                "name": published_skill.name,
-                "description": published_skill.description,
-                "target_agent": req.agent_id
-            }
-        }
+
+        return {"success": True, "skill": {"id": published_skill.id, "name": published_skill.name, "description": published_skill.description}}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi xuất bản skill: {e}")
 
@@ -235,52 +168,23 @@ async def create_skill(req: CreateSkillRequest):
     user_info = db.get_user_info(req.user_id)
     if not user_info:
         raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    role = user_info["role"]
-    name = user_info["name"]
-    
-    if role != "admin":
+    if user_info["role"] != "admin":
         raise HTTPException(status_code=403, detail="Chỉ ADMIN mới được quyền tạo skill mới")
-        
-    valid_agents = ["hr_policies", "salary_management", "system_admin", "user_management"]
-    if req.agent_id not in valid_agents:
-        raise HTTPException(status_code=400, detail=f"Agent ID `{req.agent_id}` không hợp lệ")
-        
+
     try:
-        # Build using SkillFactory
         new_skill = await skill_factory.create_from_description(
             user_description=req.description,
-            agent_id=req.agent_id,
-            created_by=name
+            created_by=user_info["name"]
         )
-        
-        # Register
-        skill_registry.register(new_skill, [req.agent_id])
-        
-        # Enable it in the active agent
-        if req.agent_id == "hr_policies":
-            hr_agent_with_skills.enable_skill(new_skill.id)
-        elif req.agent_id == "salary_management":
-            salary_agent_with_skills.enable_skill(new_skill.id)
-        elif req.agent_id == "system_admin":
-            system_admin_agent_with_skills.enable_skill(new_skill.id)
-        elif req.agent_id == "user_management":
-            user_management_agent_with_skills.enable_skill(new_skill.id)
-            
-        # Save to disk
+
+        skill_registry.register(new_skill, [])
+
         skill_file = os.path.join(settings.SKILLS_DIR, f"{new_skill.id}.json")
         os.makedirs(os.path.dirname(skill_file), exist_ok=True)
         with open(skill_file, "w", encoding="utf-8") as f:
             f.write(new_skill.model_dump_json(indent=4))
-            
-        return {
-            "success": True,
-            "skill": {
-                "id": new_skill.id,
-                "name": new_skill.name,
-                "description": new_skill.description,
-                "target_agent": req.agent_id
-            }
-        }
+
+        return {"success": True, "skill": {"id": new_skill.id, "name": new_skill.name, "description": new_skill.description}}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi tạo skill: {e}")
 
@@ -301,12 +205,6 @@ async def delete_skill(skill_id: str, user_id: str):
         
     # Remove from registry
     skill_registry.remove(skill_id)
-    
-    # Disable from all active agent instances
-    hr_agent_with_skills.disable_skill(skill_id)
-    salary_agent_with_skills.disable_skill(skill_id)
-    system_admin_agent_with_skills.disable_skill(skill_id)
-    user_management_agent_with_skills.disable_skill(skill_id)
     
     # Delete from custom skills disk path if applicable
     skill_file = os.path.join(settings.SKILLS_DIR, f"{skill_id}.json")

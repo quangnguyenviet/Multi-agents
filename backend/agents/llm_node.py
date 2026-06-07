@@ -41,7 +41,7 @@ def _build_system_prompt() -> str:
         skill_prompts = [
             skill.system_prompt
             for skill in skill_registry.list_all()
-            if skill.metadata.get("agent_id") == "llm_node" and skill.system_prompt
+            if skill.system_prompt
         ]
     except Exception:
         skill_prompts = []

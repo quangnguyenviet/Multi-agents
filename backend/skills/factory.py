@@ -21,9 +21,8 @@ class SkillFactory:
         )
         
     async def create_from_description(
-        self, 
+        self,
         user_description: str,
-        agent_id: str,
         created_by: str
     ) -> Skill:
         """Tạo skill từ mô tả bằng ngôn ngữ tự nhiên"""
@@ -98,7 +97,6 @@ QUAN TRỌNG:
                 "created_by": created_by,
                 "created_at": datetime.now().isoformat(),
                 "user_description": user_description,
-                "agent_id": agent_id
             },
             created_at=datetime.now(),
             created_by=created_by
