@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import './App.css';
 
 // Import Modular Components
@@ -13,6 +13,42 @@ import ToolRegistry from './components/admin/ToolRegistry';
 import UserManager from './components/admin/UserManager';
 
 
+function ChatRoute({ currentUser, chatMessages, setChatMessages, conversationId, setConversationId, isTyping, handleSendMessage, addLog }) {
+  const { convId } = useParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!convId || !currentUser || convId === conversationId) return;
+
+    setConversationId(convId);
+    setChatMessages([]);
+
+    fetch(`/api/conversations/${convId}/messages?user_id=${currentUser.id}`)
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('Không nạp được hội thoại')))
+      .then(data => {
+        const msgs = (data.messages || []).map(m => ({
+          role: m.role,
+          text: m.text,
+          agentName: m.role === 'assistant' ? 'AI Assistant' : undefined,
+          avatarAbbr: m.role === 'assistant' ? 'AI' : undefined,
+          timestamp: '',
+        }));
+        setChatMessages(msgs);
+        addLog(`Loaded conversation ${convId}`, 'info');
+      })
+      .catch(err => addLog(`Load conversation error: ${err.message}`, 'error'));
+  }, [convId]);
+
+  return (
+    <ChatWorkspace
+      chatMessages={chatMessages}
+      isTyping={isTyping}
+      handleSendMessage={handleSendMessage}
+      onBack={() => navigate('/chat')}
+    />
+  );
+}
+
 function App() {
   const navigate = useNavigate();
 
@@ -20,8 +56,6 @@ function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('currentUser')) || null; } catch { return null; }
   });
-
-  const [chatView, setChatView] = useState('list'); // 'list' | 'room'
 
   /* DYNAMIC REGISTRIES */
   const [skills, setSkills] = useState([]);
@@ -59,9 +93,15 @@ function App() {
     setSystemLogs(prev => [newLog, ...prev].slice(0, 25));
   };
 
-  /* SEED INITIAL LOGS */
+  /* SEED INITIAL LOGS + fetch data khi reload với user đã đăng nhập */
   useEffect(() => {
     addLog("Multi-Agent LangGraph runtime compiled successfully.", "info");
+    if (currentUser) {
+      fetchConversations(currentUser.id);
+      fetch("/api/tools").then(r => r.ok ? r.json() : []).then(d => { if (d.length) setTools(d); }).catch(() => {});
+      fetch("/api/skills").then(r => r.ok ? r.json() : []).then(d => { if (d.length) setSkills(d); }).catch(() => {});
+      if (currentUser.role === "admin") fetchUsers(currentUser.id);
+    }
   }, []);
 
   /* LOGIN HANDLER — username + password */
@@ -139,17 +179,18 @@ function App() {
 
   /* NEW CHAT — bắt đầu cuộc trò chuyện mới (reset lịch sử backend qua conversation_id mới) */
   const handleNewChat = () => {
+    const newId = crypto.randomUUID();
     setChatMessages([]);
-    setConversationId(crypto.randomUUID());
+    setConversationId(newId);
     addLog(`Started a new conversation`, "info");
-    setChatView('room');
+    navigate('/chat/' + newId);
   };
 
   const handleStartChat = (initialText) => {
     const newId = crypto.randomUUID();
     setChatMessages([]);
     setConversationId(newId);
-    setChatView('room');
+    navigate('/chat/' + newId);
     if (initialText) handleSendMessage(initialText, null, newId);
   };
 
@@ -163,26 +204,9 @@ function App() {
     }
   };
 
-  /* MỞ LẠI một cuộc hội thoại cũ — nạp tin nhắn từ backend */
-  const loadConversation = async (id) => {
-    try {
-      const res = await fetch(`/api/conversations/${id}/messages?user_id=${currentUser.id}`);
-      if (!res.ok) throw new Error("Không nạp được hội thoại");
-      const data = await res.json();
-      const msgs = (data.messages || []).map(m => ({
-        role: m.role,
-        text: m.text,
-        agentName: m.role === 'assistant' ? 'AI Assistant' : undefined,
-        avatarAbbr: m.role === 'assistant' ? 'AI' : undefined,
-        timestamp: '',
-      }));
-      setChatMessages(msgs);
-      setConversationId(id);
-      setChatView('room');
-      addLog(`Loaded conversation ${id}`, "info");
-    } catch (err) {
-      addLog(`Load conversation error: ${err.message}`, "error");
-    }
+  /* MỞ LẠI một cuộc hội thoại cũ — navigate đến route, ChatRoute tự load */
+  const loadConversation = (id) => {
+    navigate('/chat/' + id);
   };
 
   /* XÓA một cuộc hội thoại */
@@ -195,6 +219,7 @@ function App() {
       if (id === conversationId) {
         setChatMessages([]);
         setConversationId(crypto.randomUUID());
+        navigate('/chat');
       }
       triggerToast("Đã xóa cuộc trò chuyện!");
     } catch (err) {
@@ -295,23 +320,32 @@ function App() {
               {/* 2. CENTER CONTENT SPACE */}
               <div className="content-panel">
                 <Routes>
-                  {/* Chat tab */}
+                  {/* Chat list */}
                   <Route
                     path="chat"
                     element={
-                      chatView === 'list'
-                        ? <ConversationsPage
-                            conversations={conversations}
-                            onSelectConversation={loadConversation}
-                            onDeleteConversation={deleteConversation}
-                            onStartChat={handleStartChat}
-                          />
-                        : <ChatWorkspace
-                            chatMessages={chatMessages}
-                            isTyping={isTyping}
-                            handleSendMessage={handleSendMessage}
-                            onBack={() => setChatView('list')}
-                          />
+                      <ConversationsPage
+                        conversations={conversations}
+                        onSelectConversation={loadConversation}
+                        onDeleteConversation={deleteConversation}
+                        onStartChat={handleStartChat}
+                      />
+                    }
+                  />
+                  {/* Chat room — URL phản ánh conversation_id để reload hoạt động */}
+                  <Route
+                    path="chat/:convId"
+                    element={
+                      <ChatRoute
+                        currentUser={currentUser}
+                        chatMessages={chatMessages}
+                        setChatMessages={setChatMessages}
+                        conversationId={conversationId}
+                        setConversationId={setConversationId}
+                        isTyping={isTyping}
+                        handleSendMessage={handleSendMessage}
+                        addLog={addLog}
+                      />
                     }
                   />
 
