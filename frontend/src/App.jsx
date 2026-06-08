@@ -7,6 +7,7 @@ import Toast from './components/common/Toast';
 import Sidebar from './components/layout/Sidebar';
 import LoginScreen from './components/login/LoginScreen';
 import ChatWorkspace from './components/chat/ChatWorkspace';
+import ConversationsPage from './components/chat/ConversationsPage';
 import SkillManager from './components/admin/SkillManager';
 import ToolRegistry from './components/admin/ToolRegistry';
 import UserManager from './components/admin/UserManager';
@@ -16,7 +17,11 @@ function App() {
   const navigate = useNavigate();
 
   /* GLOBAL STATES */
-  const [currentUser, setCurrentUser] = useState(null); // { id, name, role, avatar }
+  const [currentUser, setCurrentUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('currentUser')) || null; } catch { return null; }
+  });
+
+  const [chatView, setChatView] = useState('list'); // 'list' | 'room'
 
   /* DYNAMIC REGISTRIES */
   const [skills, setSkills] = useState([]);
@@ -80,6 +85,7 @@ function App() {
         role: data.role,
         avatar: data.name.split(" ").map(w => w[0]).join("").toUpperCase().substring(0, 2),
       };
+      localStorage.setItem('currentUser', JSON.stringify(user));
       setCurrentUser(user);
 
       // Fetch tools
@@ -119,6 +125,7 @@ function App() {
 
   /* LOGOUT HANDLER */
   const handleLogout = () => {
+    localStorage.removeItem('currentUser');
     setCurrentUser(null);
     setChatMessages([]);
     setConversationId(crypto.randomUUID());
@@ -135,7 +142,15 @@ function App() {
     setChatMessages([]);
     setConversationId(crypto.randomUUID());
     addLog(`Started a new conversation`, "info");
-    navigate('/chat');
+    setChatView('room');
+  };
+
+  const handleStartChat = (initialText) => {
+    const newId = crypto.randomUUID();
+    setChatMessages([]);
+    setConversationId(newId);
+    setChatView('room');
+    if (initialText) handleSendMessage(initialText, null, newId);
   };
 
   /* FETCH danh sách cuộc hội thoại của user */
@@ -163,7 +178,7 @@ function App() {
       }));
       setChatMessages(msgs);
       setConversationId(id);
-      navigate('/chat');
+      setChatView('room');
       addLog(`Loaded conversation ${id}`, "info");
     } catch (err) {
       addLog(`Load conversation error: ${err.message}`, "error");
@@ -189,7 +204,7 @@ function App() {
   };
 
   /* SEND CHAT MESSAGE & EXECUTE REAL-TIME LANGGRAPH WORKFLOW */
-  const handleSendMessage = async (textToSend, file = null) => {
+  const handleSendMessage = async (textToSend, file = null, overrideConvId = null) => {
     const text = textToSend.trim();
     if (!text && !file) return;
 
@@ -207,7 +222,7 @@ function App() {
       const formData = new FormData();
       formData.append('user_id', currentUser.id);
       formData.append('query', text || "");
-      formData.append('conversation_id', conversationId);
+      formData.append('conversation_id', overrideConvId || conversationId);
       if (file) formData.append('file', file);
 
       // Không set Content-Type — browser tự set multipart boundary
@@ -275,11 +290,6 @@ function App() {
                 toolsCount={tools.length}
                 usersCount={users.length}
                 handleLogout={handleLogout}
-                conversations={conversations}
-                activeConversationId={conversationId}
-                onNewChat={handleNewChat}
-                onSelectConversation={loadConversation}
-                onDeleteConversation={deleteConversation}
               />
 
               {/* 2. CENTER CONTENT SPACE */}
@@ -289,11 +299,19 @@ function App() {
                   <Route
                     path="chat"
                     element={
-                      <ChatWorkspace
-                        chatMessages={chatMessages}
-                        isTyping={isTyping}
-                        handleSendMessage={handleSendMessage}
-                      />
+                      chatView === 'list'
+                        ? <ConversationsPage
+                            conversations={conversations}
+                            onSelectConversation={loadConversation}
+                            onDeleteConversation={deleteConversation}
+                            onStartChat={handleStartChat}
+                          />
+                        : <ChatWorkspace
+                            chatMessages={chatMessages}
+                            isTyping={isTyping}
+                            handleSendMessage={handleSendMessage}
+                            onBack={() => setChatView('list')}
+                          />
                     }
                   />
 

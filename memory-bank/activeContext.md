@@ -22,6 +22,12 @@ backend/
 - `langgraph-checkpoint-sqlite>=2,<3` (bản 3.x lỗi serialize Message)
 - `MINIO_ENDPOINT` = `host:port` (không có scheme)
 
+## Frontend key facts
+- `currentUser` persist trong `localStorage` (key `currentUser`) — reload không logout
+- `/chat` render `ConversationsPage` (list) hoặc `ChatWorkspace` (room) theo state `chatView`
+- `ConversationsPage` = input + danh sách lịch sử; sidebar không còn conversation list
+- `handleSendMessage(text, file, overrideConvId)` — param 3 để tránh stale closure khi start new chat
+
 ## Nhiệm vụ tiếp theo
 - JWT Authentication (thay user_id plain param)
 - TTL / auto-cleanup cho `_cv_docx_store`
