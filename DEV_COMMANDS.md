@@ -2,14 +2,43 @@
 
 Tập hợp các lệnh mẫu để chạy dự án ở môi trường phát triển (backend + frontend) và cách debug bằng VS Code.
 
+## Chạy lần đầu (tóm tắt)
+
+```bash
+# 1. MinIO (cho skill) — tự tạo bucket + upload seed
+docker compose up -d
+
+# 2. Backend
+cd backend
+pip install -r requirements.txt
+cp .env.example .env                 # điền LLM_API_KEY
+python -m uvicorn server:app --reload --port 8000
+
+# 3. Frontend (cửa sổ khác)
+cd frontend
+npm install
+npm run dev
+```
+
+> Dev mặc định: skill = MinIO, lịch sử chat/hội thoại = SQLite (`backend/data/*.db` tự tạo), file tạm = in-memory. Production (Postgres + Redis): xem mục "Storage backend" cuối trang.
+
 ## Chạy backend (FastAPI)
 
-- Cài dependencies (từ thư mục gốc):
+- Cài dependencies:
 
 ```bash
 cd backend
 pip install -r requirements.txt
 ```
+
+- Tạo file `.env` (lần đầu) từ mẫu rồi điền `LLM_API_KEY`:
+
+```bash
+cd backend
+cp .env.example .env        # PowerShell: Copy-Item .env.example .env
+```
+
+> Mặc định `.env` dùng SQLite + in-memory (đủ chạy dev). Skill nạp từ MinIO — xem mục MinIO bên dưới; nếu chưa chạy MinIO thì backend vẫn chạy, chỉ là danh sách skill rỗng.
 
 - Chạy server dev (uvicorn, hot-reload):
 
@@ -18,7 +47,7 @@ cd backend
 python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
 ```
 
-- Chạy CLI tương tác (tùy chọn):
+- Chạy CLI tương tác (tùy chọn) — mỗi phiên là 1 cuộc hội thoại có nhớ lịch sử:
 
 ```bash
 cd backend

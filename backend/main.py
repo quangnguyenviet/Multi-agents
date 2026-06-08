@@ -1,10 +1,10 @@
 # main.py - CLI tương tác với chatbot
-import asyncio
+import uuid
 from data import database as db
 from agents import chatbot, skill_registry
 
 
-async def run_interactive():
+def run_interactive():
     print("\n" + "=" * 60)
     print("   CHATBOT AI NOI BO")
     print("=" * 60)
@@ -25,8 +25,11 @@ async def run_interactive():
     name = user_info["name"]
     role = user_info["role"]
     print(f"\nDang nhap: {name} ({role.upper()})")
-    print("Gõ /skills de xem skills, 'exit' de thoat.")
+    print("Go /skills de xem skills, 'exit' de thoat.")
     print("-" * 60)
+
+    # Mỗi phiên CLI = 1 cuộc hội thoại (nhớ lịch sử qua checkpointer)
+    conversation_id = f"cli-{uuid.uuid4().hex[:8]}"
 
     while True:
         try:
@@ -44,12 +47,15 @@ async def run_interactive():
                     print(f"  - {s.name}: {s.description}")
                 continue
 
-            result = await chatbot.ainvoke({
-                "user_id": user_id,
-                "user_name": name,
-                "query": query,
-                "agent_response": ""
-            })
+            result = chatbot.invoke(
+                {
+                    "user_id": user_id,
+                    "user_name": name,
+                    "query": query,
+                    "agent_response": "",
+                },
+                {"configurable": {"thread_id": conversation_id}},
+            )
             print(f"\nBot: {result['agent_response']}")
 
         except KeyboardInterrupt:
@@ -60,4 +66,4 @@ async def run_interactive():
 
 
 if __name__ == "__main__":
-    asyncio.run(run_interactive())
+    run_interactive()
