@@ -193,7 +193,7 @@ function App() {
     const text = textToSend.trim();
     if (!text && !file) return;
 
-    const displayText = file ? `${text || "Tạo CV mới"} 📄 ${file.name}` : text;
+    const displayText = file ? (text ? `${text} 📄 ${file.name}` : `📄 ${file.name}`) : text;
     const userMsg = {
       role: "user",
       text: displayText,
@@ -206,7 +206,7 @@ function App() {
     try {
       const formData = new FormData();
       formData.append('user_id', currentUser.id);
-      formData.append('query', text || "Tạo CV mới cho tôi");
+      formData.append('query', text || "");
       formData.append('conversation_id', conversationId);
       if (file) formData.append('file', file);
 

@@ -105,7 +105,7 @@ async def get_skills():
 @router.post("/chat")
 async def chat(
     user_id: str = Form(...),
-    query: str = Form(...),
+    query: str = Form(default=""),
     conversation_id: str = Form(...),
     file: Optional[UploadFile] = File(None),
 ):

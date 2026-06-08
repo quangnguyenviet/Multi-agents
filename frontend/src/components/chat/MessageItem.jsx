@@ -1,21 +1,52 @@
 import React from 'react';
 
-// Basic Markdown / HTML formatting helper
+const applyInline = (text) =>
+  text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.*?)`/g, '<code style="background:rgba(99,102,241,0.15);padding:1px 5px;border-radius:3px;font-family:monospace;font-size:12px;">$1</code>');
+
 const formatMarkdown = (text) => {
   if (!text) return "";
-  let html = text;
 
-  // Convert bullet points
-  html = html.replace(/\* \*\*(.*?)\*\*: (.*?)(<br>|$)/g, '<li><strong>$1</strong>: $2</li>');
-  html = html.replace(/\* (.*?)(<br>|$)/g, '<li>$1</li>');
-  if (html.includes('<li>')) {
-    html = html.replace(/(<li>.*?<\/li>)/gs, '<ul style="margin-left: 20px; margin-bottom: 10px;">$1</ul>');
+  const lines = text.split('\n');
+  const out = [];
+  let inUl = false;
+  let inOl = false;
+
+  const closeList = () => {
+    if (inUl) { out.push('</ul>'); inUl = false; }
+    if (inOl) { out.push('</ol>'); inOl = false; }
+  };
+
+  for (const line of lines) {
+    if (line.startsWith('### ')) {
+      closeList();
+      out.push(`<h3 style="font-size:14px;font-weight:700;margin:10px 0 3px;color:#c7d2fe;">${applyInline(line.slice(4))}</h3>`);
+    } else if (line.startsWith('## ')) {
+      closeList();
+      out.push(`<h2 style="font-size:15px;font-weight:700;margin:12px 0 4px;color:#c7d2fe;">${applyInline(line.slice(3))}</h2>`);
+    } else if (line.startsWith('# ')) {
+      closeList();
+      out.push(`<h1 style="font-size:16px;font-weight:700;margin:14px 0 4px;color:#e0e7ff;">${applyInline(line.slice(2))}</h1>`);
+    } else if (/^---+$/.test(line.trim())) {
+      closeList();
+      out.push('<hr style="border:none;border-top:1px solid rgba(99,102,241,0.3);margin:10px 0;" />');
+    } else if (/^[-*] /.test(line)) {
+      if (inOl) { out.push('</ol>'); inOl = false; }
+      if (!inUl) { out.push('<ul style="margin:4px 0 8px 18px;padding:0;">'); inUl = true; }
+      out.push(`<li>${applyInline(line.slice(2))}</li>`);
+    } else if (/^\d+\. /.test(line)) {
+      if (inUl) { out.push('</ul>'); inUl = false; }
+      if (!inOl) { out.push('<ol style="margin:4px 0 8px 18px;padding:0;">'); inOl = true; }
+      out.push(`<li>${applyInline(line.replace(/^\d+\. /, ''))}</li>`);
+    } else {
+      closeList();
+      out.push(line.trim() === '' ? '<br>' : `<p style="margin:2px 0;">${applyInline(line)}</p>`);
+    }
   }
 
-  // Convert bold styling
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  
-  return html;
+  closeList();
+  return out.join('');
 };
 
 function MessageItem({ msg }) {
