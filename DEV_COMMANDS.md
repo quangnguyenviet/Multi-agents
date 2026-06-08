@@ -44,6 +44,57 @@ npm run build
 
 Sau khi build, thư mục `frontend/dist` sẽ được server FastAPI phục vụ tự động nếu tồn tại.
 
+## MinIO — lưu trữ Skill (docker-compose)
+
+Skill được lưu trên MinIO (bucket `skills`, mỗi object `.md` là 1 skill). File `docker-compose.yml` ở gốc repo dựng MinIO + tự tạo bucket + upload seed `backend/skills/library/*.md`.
+
+- Khởi động MinIO (chạy nền, tự tạo bucket & upload seed):
+
+```bash
+docker compose up -d
+```
+
+- Mở MinIO Console: http://localhost:9001 (đăng nhập `minioadmin` / `minioadmin`). S3 API ở cổng `9000` — khớp `MINIO_ENDPOINT=localhost:9000` trong `backend/.env`.
+
+- Xem log (kiểm tra bucket & seed đã upload):
+
+```bash
+docker compose logs minio-init
+```
+
+- Đẩy lại seed sau khi sửa file `.md` trong `backend/skills/library/` (cách 1 — chạy lại init):
+
+```bash
+docker compose up minio-init
+```
+
+- Hoặc đẩy seed bằng script Python (cách 2 — cần `pip install minio`):
+
+```bash
+cd backend
+python scripts/sync_skills_to_minio.py
+```
+
+- Dừng MinIO (giữ dữ liệu trong volume `minio_data`):
+
+```bash
+docker compose down
+```
+
+- Xóa luôn dữ liệu (reset sạch bucket):
+
+```bash
+docker compose down -v
+```
+
+- Kiểm tra cấu hình compose hợp lệ (không cần daemon):
+
+```bash
+docker compose config -q
+```
+
+> Skill refresh theo TTL (`SKILLS_CACHE_TTL`, mặc định 300s): sửa/upload `.md` lên MinIO sẽ có hiệu lực sau TTL, **không cần restart backend**. Nếu MinIO chưa chạy, backend vẫn khởi động bình thường (registry rỗng, tự thử lại sau TTL).
+
 ## Debug backend trong VS Code
 
 - Mở workspace trong VS Code, chọn Run & Debug, chọn cấu hình `Python: Uvicorn (server:app)` rồi nhấn F5.

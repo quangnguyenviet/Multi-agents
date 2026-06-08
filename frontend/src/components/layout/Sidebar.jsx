@@ -28,14 +28,6 @@ function Sidebar({ currentUser, skillsCount, toolsCount, handleLogout }) {
           <span>Trò chuyện Bot</span>
         </NavLink>
 
-        <NavLink
-          to="/cv-processor"
-          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-        >
-          <i className="fa-solid fa-file-circle-check"></i>
-          <span>CV Processor</span>
-        </NavLink>
-
         {currentUser.role === 'admin' && (
           <>
             <span className="nav-section-title" style={{ marginTop: '16px' }}>Thiết đặt Quản trị</span>

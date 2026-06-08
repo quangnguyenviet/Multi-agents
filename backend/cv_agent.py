@@ -8,7 +8,9 @@ CV_EXTRACTION_PROMPT = """Bạn là chuyên gia phân tích CV/Resume. Hãy đ�
 QUAN TRỌNG:
 - Chỉ trả về JSON thuần túy, không có markdown, không có giải thích.
 - Nếu một trường không có trong CV, để giá trị null hoặc mảng rỗng [].
-- Với description của experience, tách thành mảng các bullet points riêng lẻ.
+- Với experience: `description` là mảng bullet các NHIỆM VỤ/công việc đã làm; `overview` là một đoạn mô tả TỔNG QUAN dự án (nếu CV có); `team_size` là quy mô nhân sự dự án (nếu có).
+- Với skills.tech_stack: phân loại công nghệ vào đúng nhóm (hệ điều hành, công nghệ chính, cơ sở dữ liệu, công cụ, phương pháp). Nếu không phân loại được, cứ để trong technical.
+- summary_points: tách phần tóm tắt năng lực thành mảng bullet ngắn (nếu CV có phần tóm tắt/objective).
 
 JSON Schema cần trả về:
 {
@@ -23,12 +25,15 @@ JSON Schema cần trả về:
     "gender": "string|null"
   },
   "summary": "string|null",
+  "summary_points": ["string"],
   "experience": [
     {
       "company": "string",
       "position": "string",
       "start_date": "string",
       "end_date": "string",
+      "team_size": "string|null",
+      "overview": "string|null",
       "description": ["string"],
       "technologies": "string|null"
     }
@@ -45,7 +50,14 @@ JSON Schema cần trả về:
   ],
   "skills": {
     "technical": ["string"],
-    "soft": ["string"]
+    "soft": ["string"],
+    "tech_stack": {
+      "operating_systems": ["string"],
+      "core": ["string"],
+      "databases": ["string"],
+      "tools": ["string"],
+      "methodologies": ["string"]
+    }
   },
   "languages": [
     {"language": "string", "level": "string"}

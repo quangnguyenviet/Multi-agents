@@ -9,7 +9,6 @@ import LoginScreen from './components/login/LoginScreen';
 import ChatWorkspace from './components/chat/ChatWorkspace';
 import SkillManager from './components/admin/SkillManager';
 import ToolRegistry from './components/admin/ToolRegistry';
-import CVProcessor from './components/cv/CVProcessor';
 
 
 function App() {
@@ -146,7 +145,6 @@ function App() {
         agentName: "AI Assistant",
         avatarAbbr: "AI",
         text: data.response,
-        richHtml: data.rich_html || null,
         wordDownloadUrl: data.word_download_url || null,
         skillTag: "LangGraph Engine",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -239,9 +237,6 @@ function App() {
                       />
                     </>
                   )}
-
-                  {/* CV Processor — available to all logged-in users */}
-                  <Route path="cv-processor" element={<CVProcessor />} />
 
                   {/* Fallback inside dashboard */}
                   <Route path="*" element={<Navigate to="chat" replace />} />

@@ -10,10 +10,12 @@ class Settings:
     LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
     LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
     
-    # Skill Configuration — file Markdown (.md) là source of truth
-    SKILLS_DIR = "./skills/library"
-
-    # Cache
-    CACHE_TTL = 300  # 5 minutes
+    # Skill Configuration — nguồn lưu trữ là MinIO (object storage), mỗi object .md là 1 skill
+    MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")  # host:port, KHÔNG kèm scheme
+    MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
+    MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+    MINIO_SECURE = os.getenv("MINIO_SECURE", "false").lower() == "true"  # True nếu dùng https
+    MINIO_BUCKET_SKILLS = os.getenv("MINIO_BUCKET_SKILLS", "skills")
+    SKILLS_CACHE_TTL = int(os.getenv("SKILLS_CACHE_TTL", "300"))  # giây — refresh catalog từ MinIO
 
 settings = Settings()

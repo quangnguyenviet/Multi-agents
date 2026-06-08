@@ -2,7 +2,31 @@
 
 ## Trọng tâm phát triển hiện tại
 
-### 🎯 Skill System redesign — "coding agent pattern" + Progressive Disclosure (MỚI NHẤT) ✅
+### 📄 CV Processor — 2 mẫu Word + dịch Anh/Việt, bỏ HTML & trang riêng (MỚI NHẤT) ✅
+Yêu cầu gốc: user vứt CV bất kỳ → AI xuất ra **1 trong 2 mẫu file Word** theo yêu cầu + dịch Anh/Việt. Chỉ xử lý qua **chat**.
+- **2 mẫu Word** trong 1 tool: `generate_cv_word_file(cv_json, template_id="1"|"2")`.
+  - `_build_docx_template1` = Bản Lý Lịch Chuyên Môn (nhân sự chủ chốt) — như cũ.
+  - `_build_docx_template2` = Hồ sơ năng lực chi tiết: HỌ TÊN / VỊ TRÍ / TỔNG QUAN / HỌC VẤN / NGÔN NGỮ (lưới mức Thành thạo·Khá·Trung bình, đánh dấu (x)) / CÔNG NGHỆ (5 nhóm) / KINH NGHIỆM (mỗi dự án: Quy mô, Mô tả, Nhiệm vụ, Công nghệ).
+- **Schema mở rộng** (`cv_agent.py`, additive optional): `summary_points[]`, `experience[].team_size`, `experience[].overview`, `skills.tech_stack{operating_systems,core,databases,tools,methodologies}`. Mẫu 2 có fallback an toàn khi thiếu trường.
+- **Bỏ HTML khỏi chat**: xóa tool `generate_cv_file`, `_cv_html_store`, marker `__html_id__`/`rich_html`, `templates/cv_template.html`. TOOLS còn **8**.
+- **Bỏ trang CV Processor riêng**: xóa `CVProcessor.jsx`, NavLink Sidebar, route `cv-processor`, endpoint `/cv/extract` + `/cv/render`. Giữ `GET /cv/download-word/{id}` cho nút tải Word.
+- **Skill `cv_processor.md`** viết lại: đọc CV → chọn mẫu (không rõ thì HỎI) → dịch (nếu cần) → `generate_cv_word_file` với `template_id`.
+- `requirements.txt` thêm `python-docx>=1.1.0`, `openai>=1.0.0` (đang dùng mà thiếu).
+- ⚠️ Map mức ngôn ngữ bỏ dấu tiếng Việt trước khi so (`_strip_accents`).
+
+### 🗄️ Skill storage → MinIO (object storage) + TTL cache ✅
+Chuyển nguồn lưu trữ skill từ file local sang **MinIO** (S3-compatible):
+- **MinIO là nguồn DUY NHẤT** (không fallback local). Mỗi object `.md` trong bucket `skills` = 1 skill.
+- **Cache + TTL refresh**: `SkillRegistry(ttl_seconds, fetch_fn)` giữ skills trong RAM, tự refresh từ MinIO mỗi `SKILLS_CACHE_TTL` (mặc định 300s) khi `list_all()`/`get()` được gọi. Dùng `time.monotonic()` + `threading.Lock` (double-check) chống refresh đồng thời. Sửa skill trên MinIO → hiệu lực sau TTL, KHÔNG restart.
+- **Degrade an toàn**: MinIO down → giữ cache cũ, vẫn cập nhật mốc thời gian để back-off (không hammer). Startup lỗi MinIO → registry rỗng, server vẫn chạy, tự thử lại sau TTL.
+- **Read-only**: quản lý skill = upload/sửa `.md` qua MinIO Console / `mc`. Không có API/UI ghi.
+- **File mới**: `backend/storage/minio_skills.py` (client wrapper: `list_skill_objects`, `get_skill_text`), `backend/scripts/sync_skills_to_minio.py` (ensure bucket + upload seed `skills/library/*.md`).
+- **Config** (`settings.py` đọc từ env): `MINIO_ENDPOINT` (host:port, không scheme), `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_SECURE`, `MINIO_BUCKET_SKILLS`, `SKILLS_CACHE_TTL`. Đã bỏ `SKILLS_DIR`.
+- **Seed**: `skills/library/*.md` giữ trong git làm nguồn version-controlled + để upload; runtime KHÔNG đọc local nữa.
+- `requirements.txt` thêm `minio>=7.2.0`.
+- ⚠️ Cần MinIO chạy + chạy `sync_skills_to_minio.py` 1 lần để đẩy seed lên bucket.
+
+### 🎯 Skill System redesign — "coding agent pattern" + Progressive Disclosure ✅
 Thiết kế lại skill giống skill của AI coding agent (Claude Code / Anthropic Agent Skills):
 - **File Markdown là source of truth**: mỗi skill = 1 file `.md` tại `backend/skills/library/` với frontmatter (`name`, `description`) + body hướng dẫn. Viết tay, git-tracked.
 - **Progressive disclosure**: `_build_system_prompt()` chỉ inject CATALOG (`- {name}: {description}` của mọi skill), KHÔNG nhồi body. Tool mới `load_skill(skill_name)` để LLM nạp hướng dẫn đầy đủ on-demand khi yêu cầu khớp một skill.
@@ -49,34 +73,39 @@ Các session trước đó đã hoàn thành:
 backend/agents/
 ├── workflow.py         ← START → llm → tools → llm → END
 ├── workflow_state.py   ← 5 fields: user_id, user_name, query, agent_response, messages
-├── llm_node.py         ← LLM bind 9 tools, _build_system_prompt() (catalog skill), logging
-├── instances.py        ← skill_registry + SkillLoader (đã bỏ skill_factory)
+├── llm_node.py         ← LLM bind 8 tools, _build_system_prompt() (catalog skill), logging
+├── instances.py        ← skill_registry(ttl, fetch_fn=load_skills_from_minio) + warm()
 └── __init__.py
 
 backend/skills/
 ├── base.py             ← Skill model tối giản (name, description, body)
-├── loader.py           ← quét *.md + frontmatter (PyYAML)
-├── registry.py         ← dict name->Skill (register/get/list_all)
-└── library/            ← SOURCE OF TRUTH: các file skill .md
+├── loader.py           ← load_skills_from_minio() + _parse_skill_md (PyYAML)
+├── registry.py         ← TTL cache RAM (time.monotonic + Lock), refresh từ MinIO
+└── library/            ← SEED (git) để upload lên MinIO — runtime KHÔNG đọc local
     └── cv_processor.md
+
+backend/storage/minio_skills.py  ← MinIO client wrapper (list_skill_objects, get_skill_text)
+backend/scripts/sync_skills_to_minio.py  ← ensure bucket + upload seed *.md lên MinIO
 ```
+**Nguồn skill runtime = MinIO bucket `skills`** (không phải local).
 
 ## Cấu trúc backend/tools/ hiện tại
 ```
 backend/tools/
 ├── company_tools.py    ← get_company_info, get_current_datetime, calculate,
 │                          get_company_employee_list, get_demo_users_list
-└── cv_tools.py         ← read_cv_file, generate_cv_file, generate_cv_word_file
-                           _pdf_store, _cv_html_store, _cv_docx_store (in-memory dicts)
+├── cv_tools.py         ← read_cv_file, generate_cv_word_file (template_id 1|2)
+│                          _pdf_store, _cv_docx_store; _build_docx_template1/2
+└── skill_tools.py      ← load_skill (progressive disclosure)
 ```
 
 ## Lưu ý kỹ thuật quan trọng
 - `/api/chat` dùng `Form(...)` + `File(None)` — **không còn là JSON endpoint**. Frontend phải gửi FormData (không set Content-Type header)
-- `_pdf_store` bị xóa sau mỗi request. `_cv_html_store` và `_cv_docx_store` không bao giờ xóa — memory leak lâu dài
+- `_pdf_store` bị xóa sau mỗi request. `_cv_docx_store` không bao giờ xóa — memory leak lâu dài
 - `cv_agent.py` phải ở `backend/` root (tránh UnicodeEncodeError Windows cp1252). Tương tự: KHÔNG dùng emoji trong `print` (loader/registry dùng `[SKILL]` ASCII)
-- `_build_system_prompt()` gọi mỗi request, inject **CATALOG** (name+description) của mọi skill — KHÔNG nhồi body. LLM gọi `load_skill(name)` để lấy chi tiết. Thêm/sửa file `.md` → cần restart server
-- Tool trả rich HTML: lưu vào `_cv_html_store`, trả `__html_id__: {id}`
-- Tool trả Word file: lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}` → routes.py tạo `word_download_url`
+- `_build_system_prompt()` gọi mỗi request, inject **CATALOG** (name+description) của mọi skill — KHÔNG nhồi body. LLM gọi `load_skill(name)` để lấy chi tiết
+- **Skill nguồn = MinIO** (bucket `skills`), cache RAM với TTL `SKILLS_CACHE_TTL`. Sửa skill trên MinIO → hiệu lực sau TTL, KHÔNG cần restart. MinIO down → giữ cache cũ / registry rỗng, server không sập. `MINIO_ENDPOINT` là host:port (không scheme)
+- CV chỉ xuất Word qua chat (HTML đã bỏ): `generate_cv_word_file(cv_json, template_id="1"|"2")` lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}` → routes.py tạo `word_download_url`. Không còn `__html_id__`/`rich_html`/trang CV Processor
 - Login frontend gọi `GET /api/user?user_id=...` (không còn `/api/agents`)
 
 ## Cấu trúc Tool & Skill System hiện tại (coding agent pattern)
@@ -86,14 +115,11 @@ Thêm TOOL mới:
   2. Import vào backend/agents/llm_node.py → thêm vào TOOLS = [...]
   3. Restart server → GET /api/tools tự hiển thị
 
-Thêm SKILL mới:
-  1. Tạo file backend/skills/library/<name>.md
-     ---
-     name: <name>
-     description: <mô tả + KHI NÀO dùng — quyết định LLM có load không>
-     ---
-     <body: quy trình hướng dẫn>
-  2. Restart server → vào catalog system prompt + GET /api/skills
+Thêm SKILL mới (nguồn = MinIO):
+  1. Soạn file .md (frontmatter name + description "khi nào dùng" + body)
+  2. Upload lên bucket MinIO `skills` qua MinIO Console / mc
+     (hoặc sửa seed skills/library/ rồi chạy scripts/sync_skills_to_minio.py)
+  3. Sau TTL (SKILLS_CACHE_TTL) → tự vào catalog + GET /api/skills, KHÔNG cần restart
 
 Không còn (tool):  storage/tool_store.py, storage/tools.json, POST/PUT/DELETE /api/tools, ToolModal.jsx
 Không còn (skill): skills/factory.py, skills/builtin/, storage/custom_skills/*.json,
@@ -102,4 +128,4 @@ Không còn (skill): skills/factory.py, skills/builtin/, storage/custom_skills/*
 
 ## Nhiệm vụ tiếp theo
 - **Xác thực JWT**: Nâng cấp phân quyền từ `user_id` form param hiện tại sang Token JWT bảo mật
-- **Cleanup in-memory store**: Thêm TTL/auto-cleanup cho `_cv_html_store` và `_cv_docx_store` để tránh memory leak
+- **Cleanup in-memory store**: Thêm TTL/auto-cleanup cho `_cv_docx_store` để tránh memory leak

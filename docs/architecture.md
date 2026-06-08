@@ -1,37 +1,38 @@
 graph TB
     subgraph FE ["Frontend — React (Vite)"]
-        Chat["Chat UI\n• File attach (PDF)\n• Rich HTML card\n• Word download card"]
-        Admin["Admin UI\n• Skills Manager\n• Tools Manager\n• CV Processor"]
+        Chat["Chat UI\n• File attach (PDF)\n• Word download card (.docx)"]
+        Admin["Admin UI\n• Skills Manager\n• Tools Manager"]
     end
 
     subgraph API ["FastAPI Backend :8000"]
-        Routes["routes.py\nPOST /api/chat\nGET /api/skills\nPOST /api/skills/draft\nPOST /api/skills/publish\nDELETE /api/skills"]
-        CVRoutes["cv_routes.py\nPOST /api/cv/extract\nPOST /api/cv/render\nGET /api/cv/download-word/{id}"]
+        Routes["routes.py\nPOST /api/chat\nGET /api/skills (read-only)\nGET /api/tools (read-only)"]
+        CVRoutes["cv_routes.py\nGET /api/cv/download-word/{id}"]
     end
 
     subgraph LG ["LangGraph Workflow — ReAct Pattern"]
         direction LR
         S([START]) --> LLM
-        LLM["llm_node\n_build_system_prompt()\nBASE_PROMPT + tất cả skill prompts"]
+        LLM["llm_node\n_build_system_prompt()\nBASE_PROMPT + CATALOG skill (name+desc)"]
         LLM -->|"has tool_calls"| TN["ToolNode"]
         TN -->|"re-entry"| LLM
         LLM -->|"no tool_calls"| E([END])
     end
 
-    subgraph SKILLS ["Skill System — 1 tầng phẳng"]
-        SR[("SkillRegistry\nlist_all() → inject vào llm_node")]
-        JSON[("JSON Files\nstorage/custom_skills/\ncv_processor.json\n+ custom skills...")]
-        SF["SkillFactory\ncreate_from_description()"]
+    subgraph SKILLS ["Skill System — Progressive Disclosure (nguồn: MinIO)"]
+        SR[("SkillRegistry\nTTL cache RAM\nlist_all()/get()")]
+        MINIO[("MinIO bucket 'skills'\n*.md (frontmatter + body)")]
+        SEED["seed: skills/library/*.md\n(git → sync_skills_to_minio.py)"]
     end
 
     subgraph TOOLS ["Tool Registry — 8 tools"]
         CT["company_tools.py\n• get_company_info\n• get_current_datetime\n• calculate\n• get_company_employee_list\n• get_demo_users_list"]
-        CVT["cv_tools.py\n• read_cv_file\n• generate_cv_file → __html_id__\n• generate_cv_word_file → __docx_id__"]
+        CVT["cv_tools.py\n• read_cv_file\n• generate_cv_word_file (template_id 1|2) → __docx_id__"]
+        ST["skill_tools.py\n• load_skill (nạp body on-demand)"]
     end
 
     subgraph STORE ["Storage"]
         DB[("SQLite\ndata/company.db")]
-        MEM[("In-Memory\n_pdf_store — xóa sau request\n_cv_html_store ⚠️ no TTL\n_cv_docx_store ⚠️ no TTL")]
+        MEM[("In-Memory\n_pdf_store — xóa sau request\n_cv_docx_store ⚠️ no TTL")]
     end
 
     subgraph EXT ["External"]
@@ -41,28 +42,29 @@ graph TB
 
     Chat -->|"FormData: user_id, query, file?"| Routes
     Admin -->|REST| Routes
-    Admin -->|"PDF upload"| CVRoutes
+    Chat -->|"tải .docx"| CVRoutes
 
     Routes -->|"chatbot.ainvoke()"| LG
     Routes -->|"detect markers\npost-process"| MEM
 
     LLM -->|"ChatOpenAI API"| LLMProxy
-    LLM -->|"load all skills"| SR
-    SR <-->|"read/write"| JSON
-    Routes -->|"draft / publish"| SF
-    SF -->|register| SR
+    LLM -->|"catalog name+desc"| SR
+    SR -->|"refresh theo TTL"| MINIO
+    SEED -.->|"upload .md"| MINIO
+    ST -->|"get(name).body"| SR
 
     TN --> TOOLS
     CT --> DB
     CT -->|"HTTP GET"| DemoAPI
     CVT --> MEM
+    CVT -->|"extract_cv_data"| LLMProxy
 
-    CVRoutes -->|"extract + render"| LLMProxy
-    CVRoutes --> MEM
+    CVRoutes -->|"đọc _cv_docx_store"| MEM
 
-    Routes -->|"response + rich_html\n+ word_download_url"| Chat
+    Routes -->|"response + word_download_url"| Chat
 
     style MEM fill:#fff3cd,stroke:#ffc107
     style LLMProxy fill:#d1ecf1,stroke:#17a2b8
     style LG fill:#f8f9fa,stroke:#6c757d
     style SKILLS fill:#e8f5e9,stroke:#4caf50
+    style MINIO fill:#fde2e4,stroke:#e63946

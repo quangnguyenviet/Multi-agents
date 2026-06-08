@@ -5,10 +5,11 @@ function SkillManager({ activeTab, skills }) {
     <div className={`tab-content ${activeTab === 'tab-skills' ? 'active' : ''}`}>
       <div className="panel-header">
         <div className="panel-title-wrapper">
-          <h2 className="panel-title">Skill Library (Markdown)</h2>
+          <h2 className="panel-title">Skill Library (MinIO)</h2>
           <p className="panel-desc">
-            Skill là các quy trình chuyên biệt dạng Markdown. LLM nạp on-demand qua tool <code>load_skill</code>.
-            Thêm skill mới = tạo file <code>.md</code> trong <code>backend/skills/library/</code> → restart server.
+            Skill là các quy trình chuyên biệt dạng Markdown, lưu trên MinIO (bucket <code>skills</code>).
+            LLM nạp on-demand qua tool <code>load_skill</code>. Thêm/sửa skill = upload file <code>.md</code> qua
+            MinIO Console; có hiệu lực sau TTL, không cần restart.
           </p>
         </div>
         <div style={{

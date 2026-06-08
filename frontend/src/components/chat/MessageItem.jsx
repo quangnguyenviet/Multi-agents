@@ -18,14 +18,6 @@ const formatMarkdown = (text) => {
   return html;
 };
 
-const printContent = (html) => {
-  const w = window.open('', '_blank');
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  w.print();
-};
-
 function MessageItem({ msg }) {
   const isUser = msg.role === 'user';
   const avatarText = isUser ? 'ME' : (msg.avatarAbbr || 'AG');
@@ -48,22 +40,6 @@ function MessageItem({ msg }) {
           {(msg.routeInfoBadge || msg.skillTag) ? <br /> : null}
           <div dangerouslySetInnerHTML={{ __html: formatMarkdown(msg.text) }} />
         </div>
-
-        {msg.richHtml && (
-          <div className="rich-output-card">
-            <div className="rich-output-header">
-              <span><i className="fa-solid fa-file-lines" style={{ marginRight: '6px' }}></i>Tài liệu đã tạo</span>
-              <button className="rich-output-print-btn" onClick={() => printContent(msg.richHtml)}>
-                <i className="fa-solid fa-print" style={{ marginRight: '6px' }}></i>In / Xuất PDF
-              </button>
-            </div>
-            <iframe
-              srcDoc={msg.richHtml}
-              title="Document Preview"
-              style={{ width: '100%', height: '520px', border: 'none', borderRadius: '0 0 8px 8px', background: '#fff' }}
-            />
-          </div>
-        )}
 
         {msg.wordDownloadUrl && (
           <div className="word-download-card">

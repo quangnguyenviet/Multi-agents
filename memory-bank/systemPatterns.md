@@ -13,7 +13,7 @@
 - **`ToolNode`** (`langgraph.prebuilt`): tự động execute tool calls từ last AIMessage
 - **`tools_condition`** (`langgraph.prebuilt`): conditional edge — `"tools"` nếu có tool_calls, else `END`
 
-### 2. Tool Registry (9 tools — coding agent pattern)
+### 2. Tool Registry (8 tools — coding agent pattern)
 **Source of truth**: `@tool` decorated Python functions trong `backend/tools/`. Docstring = description hiển thị trên UI và gửi cho LLM.
 
 **`backend/tools/company_tools.py`**:
@@ -25,25 +25,27 @@
 
 **`backend/tools/cv_tools.py`**:
 - `read_cv_file(file_id)` — tra `_pdf_store[file_id]` → `extract_cv_data()` → JSON string
-- `generate_cv_file(cv_json)` — Jinja2 render → `_cv_html_store[cv_id]` → trả `"__html_id__: {id}"`
-- `generate_cv_word_file(cv_json)` — python-docx render Bản Lý Lịch Chuyên Môn → `_cv_docx_store[docx_id]` → trả `"__docx_id__: {id}"`
+- `generate_cv_word_file(cv_json, template_id="1"|"2")` — python-docx → `_cv_docx_store[docx_id]` → trả `"__docx_id__: {id}"`. `_build_docx_template1` (Bản Lý Lịch Chuyên Môn) / `_build_docx_template2` (Hồ sơ năng lực chi tiết)
 
 **`backend/tools/skill_tools.py`**:
 - `load_skill(skill_name)` — tra `skill_registry.get(name)` → trả `skill.body` (hướng dẫn đầy đủ). Cơ chế progressive disclosure
-- **Convention HTML tool**: lưu vào `_cv_html_store`, trả `__html_id__: {id}`
-- **Convention Word tool**: lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}`
+
+- **Convention Word tool**: lưu bytes vào `_cv_docx_store`, trả `__docx_id__: {id}` (HTML đã bỏ khỏi chat)
 
 **Tool API**:
 - `GET /api/tools` → derive từ `TOOLS` list trong `llm_node.py`, trả `{id, name, description, active: true}`
 - **Không có** POST/PUT/DELETE — tools là code, không configurable qua UI
 - **Thêm tool mới**: viết `@tool` function → import vào `llm_node.py` → thêm vào `TOOLS = [...]` → restart server
 
-### 3. Skill System — Progressive Disclosure (coding agent pattern)
-- **Source of truth**: file Markdown tại `backend/skills/library/*.md` với frontmatter `name`/`description` + body. `SkillLoader` quét `.md`, `_parse_skill_md()` tách frontmatter (PyYAML) → `Skill(name, description, body)` → `registry.register(skill)`.
+### 3. Skill System — Progressive Disclosure (coding agent pattern) + MinIO storage
+- **Nguồn lưu trữ = MinIO** (bucket `skills`, mỗi object `.md` = 1 skill). `load_skills_from_minio()` (loader.py) gọi `storage/minio_skills.py` (`list_skill_objects` + `get_skill_text`), `_parse_skill_md()` tách frontmatter (PyYAML) → `Skill(name, description, body)`.
+- **TTL cache**: `SkillRegistry(ttl_seconds, fetch_fn)` giữ skills trong RAM; `_ensure_fresh()` (gọi từ `get`/`list_all`) refresh từ MinIO khi quá `SKILLS_CACHE_TTL` (300s). `time.monotonic()` + `threading.Lock` (double-check) chống refresh đồng thời. Sửa skill trên MinIO → hiệu lực sau TTL, KHÔNG restart.
+- **Degrade**: MinIO down → giữ cache cũ, vẫn cập nhật mốc (back-off). Startup lỗi → registry rỗng, server vẫn chạy. `instances.py` gọi `skill_registry.warm()` để nạp + log lúc startup.
+- **Seed**: `skills/library/*.md` trong git để version control + upload (`scripts/sync_skills_to_minio.py`); runtime KHÔNG đọc local. `MINIO_ENDPOINT` = host:port (không scheme), scheme do `MINIO_SECURE`.
 - **`_build_system_prompt()`** trong `llm_node.py`: chỉ inject CATALOG `- {name}: {description}` + hướng dẫn "gọi `load_skill` để lấy chi tiết". KHÔNG nhồi body → tiết kiệm token, scale.
 - **`load_skill(skill_name)`** (@tool): LLM tự gọi khi yêu cầu khớp một skill → trả `skill.body` → re-entry ToolNode, LLM làm theo. `description` PHẢI nêu rõ "khi nào dùng" để LLM quyết định nạp.
 - **Thêm skill**: tạo file `.md` mới trong `skills/library/` → restart server. Read-only qua UI (giống tool).
-- `cv_processor.md` hướng dẫn LLM: đọc CV → (dịch nếu cần) → HTML (`generate_cv_file`) hoặc Word (`generate_cv_word_file`).
+- `cv_processor.md` hướng dẫn LLM: đọc CV → chọn 1 trong 2 mẫu Word (không rõ thì hỏi) → (dịch Anh/Việt nếu cần) → `generate_cv_word_file(template_id="1"|"2")`.
 - ⚠️ `print` trong loader/registry dùng ASCII `[SKILL]` (không emoji) để tránh UnicodeEncodeError cp1252 trên Windows.
 
 ### 4. Output Pattern trong Chat — Generic Flow
@@ -54,21 +56,20 @@ Frontend FormData (user_id, query, file?)
   → chatbot.ainvoke()
   → LangGraph: llm → tool(s) → llm → ... → END
   → routes.py post-process: quét ngược ToolMessages tìm marker
-      - "__html_id__:" → lấy HTML từ _cv_html_store
       - "__docx_id__:" → tạo word_download_url = /api/cv/download-word/{id}
-  → return {"response": text, "rich_html": html|null, "word_download_url": url|null}
-  → Frontend App.jsx: botMsg.richHtml, botMsg.wordDownloadUrl
-  → MessageItem: hiện iframe nếu richHtml, hiện nút tải nếu wordDownloadUrl
+  → return {"response": text, "word_download_url": url|null}
+  → Frontend App.jsx: botMsg.wordDownloadUrl
+  → MessageItem: hiện nút tải nếu wordDownloadUrl
 ```
 
 ### 5. Chat Endpoint Pattern
 - **`POST /api/chat`**: `Form(user_id, query)` + `File(file=None)` optional
 - **Không set `Content-Type`** từ frontend — browser tự set `multipart/form-data; boundary=...`
-- Response: `{"response": str, "rich_html": str|null, "word_download_url": str|null}`
+- Response: `{"response": str, "word_download_url": str|null}`
 - **Thêm output format mới**: implement tool → lưu vào store, trả marker `__xxx_id__: {id}` → thêm detect trong routes.py → thêm endpoint serve file
 
-### 6. Word Document Format — Bản Lý Lịch Chuyên Môn
-Cấu trúc Word output (python-docx):
+### 6. Word Document Format — 2 mẫu (template_id)
+**Mẫu 1 — Bản Lý Lịch Chuyên Môn** (`_build_docx_template1`, template_id="1"):
 1. Tiêu đề "BẢN LÝ LỊCH CHUYÊN MÔN CỦA NHÂN SỰ CHỦ CHỐT" (căn giữa, bold, navy)
 2. "Vị trí: [experience[0].position]"
 3. Bảng 3 cột (`Table Grid`): `Thông tin nhân sự | Tên/Email/ĐT | Ngày sinh/Địa chỉ`
@@ -81,25 +82,34 @@ Cấu trúc Word output (python-docx):
    - **Công nghệ sử dụng**: `technologies` (field mới trong cv_agent.py schema)
 7. Kỹ năng / Ngoại ngữ / Chứng chỉ (nếu có)
 
+**Mẫu 2 — Hồ sơ năng lực chi tiết** (`_build_docx_template2`, template_id="2"):
+1. Bảng `HỌ VÀ TÊN | full_name`, `VỊ TRÍ | position`
+2. **TỔNG QUAN**: bullets từ `summary_points` (fallback `summary`)
+3. **HỌC VẤN**: mỗi mục `start–end | field/degree + institution`
+4. **NGÔN NGỮ**: bảng 4 cột — ngôn ngữ | Thành thạo | Khá | Trung bình, đánh dấu `(x)` theo `level` (so khớp đã bỏ dấu qua `_strip_accents`)
+5. **CÔNG NGHỆ**: 5 nhóm từ `skills.tech_stack` (operating_systems/core/databases/tools/methodologies); fallback `core` ← `skills.technical`
+6. **KINH NGHIỆM LÀM VIỆC (N dự án)**: mỗi dự án bảng 2 cột — Dự án(`company`)/Thời gian/Vị trí/Quy mô(`team_size`)/Mô tả(`overview`)/Nhiệm vụ(`description[]`)/Công nghệ(`technologies`)
+- Tất cả block fallback an toàn khi thiếu trường.
+
 ### 7. Skill Model & Registry (phẳng)
 - `Skill` (pydantic): chỉ `name`, `description`, `body`. Bỏ hết field đa-agent cũ (skill_type, parameters, permission, examples, metadata, id, version).
 - `SkillRegistry`: dict `name -> Skill`, chỉ `register(skill)` / `get(name)` / `list_all()`.
 - `GET /api/skills` read-only → `[{name, description}]`. Không có draft/publish/create/delete.
 
 ### 8. Kiến trúc ReactJS Client
-- **`App.jsx`**: `handleSendMessage(text, file=null)` — FormData; `botMsg.richHtml`, `botMsg.wordDownloadUrl`
+- **`App.jsx`**: `handleSendMessage(text, file=null)` — FormData; `botMsg.wordDownloadUrl`
 - **`ChatInputBar.jsx`**: state `attachedFile`, nút đính kèm, file badge
-- **`MessageItem.jsx`**: `msg-bubble` (text) + `rich-output-card` (iframe nếu richHtml) + `word-download-card` (nút tải nếu wordDownloadUrl)
+- **`MessageItem.jsx`**: `msg-bubble` (text) + `word-download-card` (nút tải `.docx` nếu wordDownloadUrl). Không còn iframe HTML / trang CV Processor
 
 ### 9. Tích hợp LLM & Proxy
 - **9Router LLM Proxy**: `http://172.31.2.23:20128/v1`, model `evotek_flash`
 - **Vite Proxy**: Dev port 3000 → Backend port 8000
 - **FastAPI Static**: Serve React build từ `/frontend/dist/`
 
-### 10. CV Processor Pipeline
-- `POST /api/cv/extract`: pdfplumber → LLM (9Router) → JSON có cấu trúc (incl. `technologies` per experience)
-- `POST /api/cv/render`: JSON data → Jinja2 → HTML A4 2 cột
+### 10. CV Processor — chỉ qua chat (đã bỏ trang riêng + HTML)
+- Luồng: chat upload PDF → tool `read_cv_file` (pdfplumber → LLM → JSON) → (dịch) → `generate_cv_word_file(template_id)` → `__docx_id__`
 - `GET /api/cv/download-word/{docx_id}`: `_cv_docx_store[docx_id]` → StreamingResponse `.docx`
+- Đã xóa: `POST /cv/extract`, `POST /cv/render`, `templates/cv_template.html`, trang `CVProcessor.jsx`
 
 ## File Structure Backend
 ```
@@ -107,25 +117,28 @@ backend/
 ├── agents/
 │   ├── workflow.py         ← build_multi_agent_system(), chatbot
 │   ├── workflow_state.py   ← MultiAgentState TypedDict (5 fields)
-│   ├── llm_node.py         ← llm_node + TOOLS (9) + _build_system_prompt() (catalog)
-│   ├── instances.py        ← skill_registry + SkillLoader
+│   ├── llm_node.py         ← llm_node + TOOLS (8) + _build_system_prompt() (catalog)
+│   ├── instances.py        ← skill_registry(ttl, fetch_fn=load_skills_from_minio) + warm()
 │   └── __init__.py
-├── skills/                 ← SOURCE OF TRUTH cho skill (Markdown)
+├── skills/
 │   ├── base.py             ← Skill(name, description, body)
-│   ├── loader.py           ← quét *.md + frontmatter (PyYAML)
-│   ├── registry.py         ← dict name->Skill
-│   └── library/
-│       └── cv_processor.md ← skill: đọc CV → HTML hoặc Word tùy yêu cầu
+│   ├── loader.py           ← load_skills_from_minio() + _parse_skill_md (PyYAML)
+│   ├── registry.py         ← TTL cache RAM (refresh từ MinIO)
+│   └── library/            ← SEED (git) để upload — runtime KHÔNG đọc local
+│       └── cv_processor.md
 ├── tools/                  ← SOURCE OF TRUTH cho tool registry
 │   ├── company_tools.py    ← 5 general @tool functions
-│   ├── cv_tools.py         ← read_cv_file, generate_cv_file, generate_cv_word_file
-│   │                          + _pdf_store, _cv_html_store, _cv_docx_store
+│   ├── cv_tools.py         ← read_cv_file, generate_cv_word_file (template 1|2)
+│   │                          + _pdf_store, _cv_docx_store; _build_docx_template1/2
 │   └── skill_tools.py      ← load_skill (progressive disclosure)
+├── scripts/
+│   └── sync_skills_to_minio.py  ← ensure bucket + upload seed *.md
 ├── storage/
+│   ├── minio_skills.py     ← MinIO client wrapper (NGUỒN skill runtime)
 │   └── company_info.json
 ├── cv_agent.py             ← extract_cv_data() — PHẢI ở backend/ root
-│                              schema experience có trường technologies
+│                              schema: +summary_points, +experience.team_size/overview, +skills.tech_stack
 └── api/
-    ├── routes.py           ← /chat (Form+File), /skills + /tools (read-only), detect markers
-    └── cv_routes.py        ← /cv/extract, /cv/render, /cv/download-word/{id}
+    ├── routes.py           ← /chat (Form+File), /skills + /tools (read-only), detect __docx_id__
+    └── cv_routes.py        ← /cv/download-word/{id}
 ```
