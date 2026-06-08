@@ -262,7 +262,7 @@ function App() {
         avatarAbbr: "AI",
         text: data.response,
         wordDownloadUrl: data.word_download_url || null,
-        skillTag: "LangGraph Engine",
+        skillTag: data.skill_used || "LangGraph Engine",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 

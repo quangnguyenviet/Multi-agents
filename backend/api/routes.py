@@ -4,6 +4,9 @@ import uuid
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Form, File, UploadFile
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+import logging
+
+logger = logging.getLogger(__name__)
 from data import database as db
 from tools.cv_tools import _pdf_store, _cv_docx_store
 
@@ -118,8 +121,9 @@ async def chat(
             _pdf_store[file_id] = await file.read()
             full_query = (
                 f"{query}\n\n"
-                f"[Người dùng đã upload file: {file.filename}. file_id: {file_id}. "
-                f"Hãy dùng tool phù hợp để xử lý file này.]"
+                f"[File đính kèm: '{file.filename}' (file_id: {file_id}). "
+                f"Hãy dùng tool read_file_content để đọc nội dung file trước, "
+                f"sau đó phản hồi phù hợp với nội dung thực tế của file.]"
             )
 
         # thread_id = conversation_id → checkpointer SQLite tự nạp/lưu lịch sử của cuộc
@@ -135,9 +139,10 @@ async def chat(
             config,
         )
 
-        # Tìm Word output từ tool trả về __docx_id__ — CHỈ trong lượt hiện tại
-        # (quét ngược, dừng khi gặp HumanMessage = ranh giới đầu lượt) để không lấy nhầm file lượt cũ
+        # Quét ngược message history trong lượt hiện tại (dừng khi gặp HumanMessage)
+        # để không lấy nhầm dữ liệu từ lượt cũ
         word_download_url = None
+        skill_used = None
         for msg in reversed(result.get("messages", [])):
             if isinstance(msg, HumanMessage):
                 break
@@ -145,7 +150,12 @@ async def chat(
                 docx_id = msg.content.split("__docx_id__:")[-1].strip().split()[0]
                 if docx_id in _cv_docx_store:
                     word_download_url = f"/api/cv/download-word/{docx_id}"
-                    break
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    if tc.get("name") == "load_skill" and not skill_used:
+                        skill_used = tc.get("args", {}).get("skill_name")
+                        logger.info("[ROUTE /chat] Skill selected for query '%s': %s",
+                                    query[:80], skill_used)
 
         if file_id:
             _pdf_store.pop(file_id, None)
@@ -157,6 +167,8 @@ async def chat(
         response_data: dict = {"response": final_response}
         if word_download_url:
             response_data["word_download_url"] = word_download_url
+        if skill_used:
+            response_data["skill_used"] = skill_used
         return response_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi chatbot: {e}")

@@ -1,5 +1,8 @@
 # Tool nạp skill on-demand (progressive disclosure)
+import logging
 from langchain_core.tools import tool
+
+logger = logging.getLogger(__name__)
 
 
 @tool
@@ -12,5 +15,8 @@ def load_skill(skill_name: str) -> str:
     skill = skill_registry.get(skill_name)
     if not skill:
         available = ", ".join(s.name for s in skill_registry.list_all()) or "(không có)"
+        logger.warning("[SKILL] Not found: '%s' | available: %s", skill_name, available)
         return f"Không tìm thấy skill '{skill_name}'. Các skill khả dụng: {available}."
+
+    logger.info("[SKILL] Loaded: '%s'", skill_name)
     return skill.body
