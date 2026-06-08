@@ -1,7 +1,17 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 
-function Sidebar({ currentUser, skillsCount, toolsCount, handleLogout }) {
+function Sidebar({
+  currentUser,
+  skillsCount,
+  toolsCount,
+  handleLogout,
+  conversations = [],
+  activeConversationId,
+  onNewChat,
+  onSelectConversation,
+  onDeleteConversation,
+}) {
   return (
     <div className="sidebar">
       <div className="brand-header">
@@ -51,6 +61,40 @@ function Sidebar({ currentUser, skillsCount, toolsCount, handleLogout }) {
             </NavLink>
           </>
         )}
+      </div>
+
+      {/* Lịch sử hội thoại */}
+      <div className="conv-section">
+        <div className="conv-section-head">
+          <span className="nav-section-title">Lịch sử trò chuyện</span>
+          <button className="conv-new-btn" onClick={onNewChat} title="Cuộc trò chuyện mới">
+            <i className="fa-solid fa-pen-to-square"></i>
+          </button>
+        </div>
+
+        <div className="conv-list">
+          {conversations.length === 0 && (
+            <div className="conv-empty">Chưa có cuộc trò chuyện nào</div>
+          )}
+          {conversations.map(conv => (
+            <div
+              key={conv.id}
+              className={`conv-item ${conv.id === activeConversationId ? 'active' : ''}`}
+              onClick={() => onSelectConversation(conv.id)}
+              title={conv.title}
+            >
+              <i className="fa-solid fa-message conv-item-icon"></i>
+              <span className="conv-item-title">{conv.title || 'Cuộc trò chuyện'}</span>
+              <button
+                className="conv-del-btn"
+                title="Xóa"
+                onClick={(e) => { e.stopPropagation(); onDeleteConversation(conv.id); }}
+              >
+                <i className="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <button className="logout-btn" onClick={handleLogout}>

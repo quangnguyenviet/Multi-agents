@@ -528,6 +528,113 @@ body {
     justify-content: space-between;
 }
 
+/* -----------------------------------------
+   SIDEBAR — Lịch sử hội thoại
+------------------------------------------ */
+.conv-section {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-bottom: 16px;
+}
+
+.conv-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.conv-new-btn {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid var(--border-glass);
+    color: var(--color-primary);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+}
+
+.conv-new-btn:hover {
+    background: rgba(99, 102, 241, 0.18);
+    border-color: var(--color-primary);
+}
+
+.conv-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-right: 2px;
+}
+
+.conv-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 8px;
+}
+
+.conv-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.conv-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: white;
+}
+
+.conv-item.active {
+    background: rgba(99, 102, 241, 0.12);
+    color: white;
+}
+
+.conv-item-icon {
+    font-size: 12px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.conv-item-title {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.conv-del-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    flex-shrink: 0;
+    padding: 2px 4px;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.conv-item:hover .conv-del-btn {
+    opacity: 1;
+}
+
+.conv-del-btn:hover {
+    color: var(--color-danger);
+}
+
 .agent-selector-bar {
     display: flex;
     align-items: center;

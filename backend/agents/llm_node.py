@@ -64,25 +64,25 @@ def _build_system_prompt() -> str:
 
 
 def llm_node(state: MultiAgentState) -> dict:
-    existing_messages = state.get("messages") or []
-    system_msg = SystemMessage(content=_build_system_prompt())
-    human_msg = HumanMessage(content=state["query"])
+    # `messages` là lịch sử hội thoại đã persist qua checkpointer (theo thread_id)
+    existing_messages = list(state.get("messages") or [])
+    is_reentry = bool(existing_messages) and isinstance(existing_messages[-1], ToolMessage)
 
-    is_reentry = existing_messages and isinstance(existing_messages[-1], ToolMessage)
-
+    new_messages = []
     if not is_reentry:
-        messages_to_send = [system_msg, human_msg]
-        logger.info("[LLM NODE] First call — query: %s", state["query"][:120])
+        # Lượt mới của người dùng → lưu câu hỏi vào history
+        new_messages.append(HumanMessage(content=state["query"]))
+        logger.info("[LLM NODE] New turn — query: %s | history len: %d",
+                    state["query"][:120], len(existing_messages))
     else:
-        # Re-entry sau ToolNode: giữ system + query gốc để LLM không quên ngữ cảnh
-        messages_to_send = [system_msg, human_msg] + list(existing_messages)
-        logger.info("[LLM NODE] Re-entry after ToolNode — history length: %d", len(existing_messages))
-        for msg in existing_messages:
-            label = type(msg).__name__
-            content_preview = (msg.content or "")[:200]
-            logger.info("  [%s] %s", label, content_preview)
+        logger.info("[LLM NODE] Re-entry after ToolNode — history len: %d", len(existing_messages))
+
+    # SystemMessage dựng mỗi lần gọi (catalog skill luôn mới), KHÔNG lưu vào history
+    system_msg = SystemMessage(content=_build_system_prompt())
+    messages_to_send = [system_msg] + existing_messages + new_messages
 
     response = llm_with_tools.invoke(messages_to_send)
+    new_messages.append(response)
 
     if response.tool_calls:
         for tc in response.tool_calls:
@@ -92,6 +92,6 @@ def llm_node(state: MultiAgentState) -> dict:
         logger.info("[LLM NODE] Final response (first 200 chars): %s", response.content[:200])
 
     return {
-        "messages": [response],
+        "messages": new_messages,
         "agent_response": response.content if not response.tool_calls else "",
     }

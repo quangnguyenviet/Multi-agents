@@ -2,16 +2,16 @@
 
 ## Kiến trúc Hệ thống
 
-### 1. LangGraph Workflow (ReAct Pattern)
+### 1. LangGraph Workflow (ReAct Pattern) + Checkpointer
 - **Topology**: `START → llm ──[tool_calls?]──→ tools → llm → END`
-- **`MultiAgentState`**: 5 fields — `user_id`, `user_name`, `query`, `agent_response`, `messages: Annotated[list, add_messages]`
+- **Checkpointer (cấu hình được)**: `workflow._make_checkpointer()` theo `DB_BACKEND` → `SqliteSaver` (dev, `data/checkpoints.db`, `check_same_thread=False`) hoặc `PostgresSaver` + `psycopg_pool.ConnectionPool` (prod). `.setup()` tạo bảng. Lịch sử persist theo `thread_id` = `conversation_id`. Gọi qua `asyncio.to_thread(chatbot.invoke, input, {"configurable":{"thread_id": conv_id}})` (node sync → saver sync). Version: `langgraph-checkpoint-sqlite>=2,<3` / `langgraph-checkpoint-postgres>=2,<3` (khớp langgraph 0.2.76).
+- **`MultiAgentState`**: 5 fields — `user_id`, `user_name`, `query`, `agent_response`, `messages: Annotated[list, add_messages]` (history tích lũy qua checkpointer)
 - **`llm_node`** (`backend/agents/llm_node.py`):
   - `llm_with_tools = ChatOpenAI(...).bind_tools(TOOLS)` — khởi tạo ở module level
-  - `_build_system_prompt()` — gọi mỗi request, ghép `BASE_SYSTEM_PROMPT` + **CATALOG** skill (`- {name}: {description}`). KHÔNG nhồi body — progressive disclosure qua `load_skill`
-  - **Lần đầu VÀ re-entry**: đều prepend `[SystemMessage, HumanMessage(query)]` — re-entry thêm `+ existing_messages`
+  - `_build_system_prompt()` — gọi mỗi request, ghép `BASE_SYSTEM_PROMPT` + **CATALOG** skill. KHÔNG nhồi body — progressive disclosure qua `load_skill`
+  - **History-aware**: lượt mới → thêm `HumanMessage(query)` vào history; re-entry (last là ToolMessage) → không thêm. Gọi LLM với `[SystemMessage] + existing_messages + new`. SystemMessage KHÔNG lưu (catalog luôn mới). Trả `new_messages` (human+response) cho reducer
   - `agent_response` chỉ set khi `not response.tool_calls` (turn cuối)
-- **`ToolNode`** (`langgraph.prebuilt`): tự động execute tool calls từ last AIMessage
-- **`tools_condition`** (`langgraph.prebuilt`): conditional edge — `"tools"` nếu có tool_calls, else `END`
+- **`ToolNode`** / **`tools_condition`** (`langgraph.prebuilt`): execute tool calls + conditional edge
 
 ### 2. Tool Registry (8 tools — coding agent pattern)
 **Source of truth**: `@tool` decorated Python functions trong `backend/tools/`. Docstring = description hiển thị trên UI và gửi cho LLM.
@@ -63,9 +63,17 @@ Frontend FormData (user_id, query, file?)
 ```
 
 ### 5. Chat Endpoint Pattern
-- **`POST /api/chat`**: `Form(user_id, query)` + `File(file=None)` optional
+- **`POST /api/chat`**: `Form(user_id, query, conversation_id)` + `File(file=None)` optional. `conversation_id` BẮT BUỘC (thread_id checkpointer)
 - **Không set `Content-Type`** từ frontend — browser tự set `multipart/form-data; boundary=...`
+- Invoke: `asyncio.to_thread(chatbot.invoke, {...}, {"configurable":{"thread_id": conversation_id}})`. Không truyền `messages` (checkpointer giữ)
+- Quét `__docx_id__`: scan ngược `result["messages"]`, **dừng khi gặp HumanMessage** (chỉ lượt hiện tại)
+- Sau mỗi lượt: `conversation_store.upsert(conversation_id, user_id, query)` (title = câu hỏi đầu)
 - Response: `{"response": str, "word_download_url": str|null}`
+
+### 5b. Conversation Management (chọn cuộc hội thoại cũ)
+- **`storage/conversation_store.py`** (SQLite `data/conversations.db` dev / PostgreSQL prod theo `DB_BACKEND`): `conversations(id, user_id, title, created_at, updated_at)`. `upsert/list_for_user/owner/delete`. Placeholder `_PH` (`?`/`%s`), upsert `ON CONFLICT (id) DO UPDATE`, helper `_run()` đóng connection.
+- `GET /api/conversations?user_id` → list (updated_at desc). `GET /api/conversations/{id}/messages?user_id` → nạp từ `chatbot.get_state` (Human→user, AIMessage có content→assistant). `DELETE /api/conversations/{id}?user_id` → xóa store + `workflow.delete_thread` (xóa checkpoint).
+- Frontend: Sidebar danh sách (active highlight, xóa hover) + "Chat mới"; `App.jsx` loadConversation/deleteConversation/fetchConversations.
 - **Thêm output format mới**: implement tool → lưu vào store, trả marker `__xxx_id__: {id}` → thêm detect trong routes.py → thêm endpoint serve file
 
 ### 6. Word Document Format — 2 mẫu (template_id)
@@ -97,7 +105,8 @@ Frontend FormData (user_id, query, file?)
 - `GET /api/skills` read-only → `[{name, description}]`. Không có draft/publish/create/delete.
 
 ### 8. Kiến trúc ReactJS Client
-- **`App.jsx`**: `handleSendMessage(text, file=null)` — FormData; `botMsg.wordDownloadUrl`
+- **`App.jsx`**: `handleSendMessage(text, file=null)` — FormData (kèm `conversation_id`); `botMsg.wordDownloadUrl`. State `conversationId` (uuid, sinh khi login/"Chat mới"/logout); `handleNewChat` reset chatMessages + id mới
+- **`ChatWorkspace.jsx`**: nút **"Chat mới"** ở `chat-header` (prop `onNewChat`)
 - **`ChatInputBar.jsx`**: state `attachedFile`, nút đính kèm, file badge
 - **`MessageItem.jsx`**: `msg-bubble` (text) + `word-download-card` (nút tải `.docx` nếu wordDownloadUrl). Không còn iframe HTML / trang CV Processor
 
@@ -115,7 +124,7 @@ Frontend FormData (user_id, query, file?)
 ```
 backend/
 ├── agents/
-│   ├── workflow.py         ← build_multi_agent_system(), chatbot
+│   ├── workflow.py         ← build_multi_agent_system(checkpointer) + SqliteSaver (data/checkpoints.db)
 │   ├── workflow_state.py   ← MultiAgentState TypedDict (5 fields)
 │   ├── llm_node.py         ← llm_node + TOOLS (8) + _build_system_prompt() (catalog)
 │   ├── instances.py        ← skill_registry(ttl, fetch_fn=load_skills_from_minio) + warm()
@@ -135,10 +144,14 @@ backend/
 │   └── sync_skills_to_minio.py  ← ensure bucket + upload seed *.md
 ├── storage/
 │   ├── minio_skills.py     ← MinIO client wrapper (NGUỒN skill runtime)
+│   ├── conversation_store.py ← metadata hội thoại (SQLite dev / Postgres prod)
+│   ├── blob_store.py       ← blob tạm PDF/Word (in-memory dev / Redis prod, dict-like)
 │   └── company_info.json
+├── requirements.txt        ← base deps
+├── requirements-prod.txt   ← postgres + redis (cài thêm khi production)
 ├── cv_agent.py             ← extract_cv_data() — PHẢI ở backend/ root
 │                              schema: +summary_points, +experience.team_size/overview, +skills.tech_stack
 └── api/
-    ├── routes.py           ← /chat (Form+File), /skills + /tools (read-only), detect __docx_id__
+    ├── routes.py           ← /chat (+conversation_id), /conversations (list/messages/delete), /skills + /tools
     └── cv_routes.py        ← /cv/download-word/{id}
 ```

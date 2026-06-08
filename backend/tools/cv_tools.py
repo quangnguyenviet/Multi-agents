@@ -12,9 +12,10 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from langchain_core.tools import tool
 
 from cv_agent import extract_cv_data
+from storage.blob_store import make_blob_store
 
-_pdf_store: dict = {}       # {file_id: bytes}
-_cv_docx_store: dict = {}   # {docx_id: bytes}
+_pdf_store = make_blob_store("cv_pdf")       # {file_id: bytes}
+_cv_docx_store = make_blob_store("cv_docx")  # {docx_id: bytes}
 
 
 @tool

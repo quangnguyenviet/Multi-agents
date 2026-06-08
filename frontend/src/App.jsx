@@ -24,6 +24,8 @@ function App() {
   /* CHAT STATES */
   const [chatMessages, setChatMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationId, setConversationId] = useState(() => crypto.randomUUID());
+  const [conversations, setConversations] = useState([]);
 
   /* LIVE SYSTEM LOGS */
   const [systemLogs, setSystemLogs] = useState([]);
@@ -60,6 +62,9 @@ function App() {
     try {
       addLog(`Authenticating User ID: ${userId}...`, "info");
 
+      // Bắt đầu một cuộc trò chuyện mới khi đăng nhập
+      setConversationId(crypto.randomUUID());
+
       const res = await fetch(`/api/user?user_id=${userId}`);
       if (!res.ok) throw new Error("Không thể kết nối đến máy chủ backend!");
       const data = await res.json();
@@ -95,6 +100,9 @@ function App() {
         addLog(`Skill fetch failed: ${skillsErr.message}`, "warning");
       }
 
+      // Fetch danh sách cuộc hội thoại cũ
+      fetchConversations(data.user_id);
+
       addLog(`Login completed! Role: ${data.role.toUpperCase()}`, "success");
       triggerToast(`Đăng nhập thành công với vai trò ${data.role.toUpperCase()}!`);
     } catch (err) {
@@ -107,10 +115,70 @@ function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     setChatMessages([]);
+    setConversationId(crypto.randomUUID());
+    setConversations([]);
     setSkills([]);
     setTools([]);
     addLog(`User logged out from session`, "warning");
     navigate('/login');
+  };
+
+  /* NEW CHAT — bắt đầu cuộc trò chuyện mới (reset lịch sử backend qua conversation_id mới) */
+  const handleNewChat = () => {
+    setChatMessages([]);
+    setConversationId(crypto.randomUUID());
+    addLog(`Started a new conversation`, "info");
+    navigate('/chat');
+  };
+
+  /* FETCH danh sách cuộc hội thoại của user */
+  const fetchConversations = async (userId) => {
+    try {
+      const res = await fetch(`/api/conversations?user_id=${userId}`);
+      if (res.ok) setConversations(await res.json());
+    } catch (err) {
+      addLog(`Conversation list fetch failed: ${err.message}`, "warning");
+    }
+  };
+
+  /* MỞ LẠI một cuộc hội thoại cũ — nạp tin nhắn từ backend */
+  const loadConversation = async (id) => {
+    try {
+      const res = await fetch(`/api/conversations/${id}/messages?user_id=${currentUser.id}`);
+      if (!res.ok) throw new Error("Không nạp được hội thoại");
+      const data = await res.json();
+      const msgs = (data.messages || []).map(m => ({
+        role: m.role,
+        text: m.text,
+        agentName: m.role === 'assistant' ? 'AI Assistant' : undefined,
+        avatarAbbr: m.role === 'assistant' ? 'AI' : undefined,
+        timestamp: '',
+      }));
+      setChatMessages(msgs);
+      setConversationId(id);
+      navigate('/chat');
+      addLog(`Loaded conversation ${id}`, "info");
+    } catch (err) {
+      addLog(`Load conversation error: ${err.message}`, "error");
+    }
+  };
+
+  /* XÓA một cuộc hội thoại */
+  const deleteConversation = async (id) => {
+    if (!window.confirm("Xóa cuộc trò chuyện này khỏi hệ thống?")) return;
+    try {
+      const res = await fetch(`/api/conversations/${id}?user_id=${currentUser.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error("Xóa thất bại");
+      setConversations(prev => prev.filter(c => c.id !== id));
+      if (id === conversationId) {
+        setChatMessages([]);
+        setConversationId(crypto.randomUUID());
+      }
+      triggerToast("Đã xóa cuộc trò chuyện!");
+    } catch (err) {
+      addLog(`Delete conversation error: ${err.message}`, "error");
+      alert(`Lỗi xóa hội thoại: ${err.message}`);
+    }
   };
 
   /* SEND CHAT MESSAGE & EXECUTE REAL-TIME LANGGRAPH WORKFLOW */
@@ -132,6 +200,7 @@ function App() {
       const formData = new FormData();
       formData.append('user_id', currentUser.id);
       formData.append('query', text || "Tạo CV mới cho tôi");
+      formData.append('conversation_id', conversationId);
       if (file) formData.append('file', file);
 
       // Không set Content-Type — browser tự set multipart boundary
@@ -152,6 +221,7 @@ function App() {
 
       setChatMessages(prev => [...prev, botMsg]);
       addLog(`Received response from LLM successfully`, "success");
+      fetchConversations(currentUser.id);  // cập nhật danh sách (cuộc mới / thứ tự)
     } catch (err) {
       addLog(`Chat Error: ${err.message}`, "error");
 
@@ -197,6 +267,11 @@ function App() {
                 skillsCount={skills.length}
                 toolsCount={tools.length}
                 handleLogout={handleLogout}
+                conversations={conversations}
+                activeConversationId={conversationId}
+                onNewChat={handleNewChat}
+                onSelectConversation={loadConversation}
+                onDeleteConversation={deleteConversation}
               />
 
               {/* 2. CENTER CONTENT SPACE */}

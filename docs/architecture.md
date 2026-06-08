@@ -1,11 +1,11 @@
 graph TB
     subgraph FE ["Frontend — React (Vite)"]
-        Chat["Chat UI\n• File attach (PDF)\n• Word download card (.docx)"]
+        Chat["Chat UI\n• File attach (PDF)\n• Word download card (.docx)\n• Nút Chat mới (conversation_id)"]
         Admin["Admin UI\n• Skills Manager\n• Tools Manager"]
     end
 
     subgraph API ["FastAPI Backend :8000"]
-        Routes["routes.py\nPOST /api/chat\nGET /api/skills (read-only)\nGET /api/tools (read-only)"]
+        Routes["routes.py\nPOST /api/chat (+conversation_id)\nGET/DELETE /api/conversations\nGET /api/skills (read-only)\nGET /api/tools (read-only)"]
         CVRoutes["cv_routes.py\nGET /api/cv/download-word/{id}"]
     end
 
@@ -16,6 +16,8 @@ graph TB
         LLM -->|"has tool_calls"| TN["ToolNode"]
         TN -->|"re-entry"| LLM
         LLM -->|"no tool_calls"| E([END])
+        CKPT[("Checkpointer\nSqliteSaver (dev) / PostgresSaver (prod)\nthread_id = conversation_id")]
+        LLM <-->|"history persist/restore"| CKPT
     end
 
     subgraph SKILLS ["Skill System — Progressive Disclosure (nguồn: MinIO)"]
@@ -32,7 +34,8 @@ graph TB
 
     subgraph STORE ["Storage"]
         DB[("SQLite\ndata/company.db")]
-        MEM[("In-Memory\n_pdf_store — xóa sau request\n_cv_docx_store ⚠️ no TTL")]
+        CONV[("conversations\nSQLite (dev) / Postgres (prod)\nDB_BACKEND")]
+        MEM[("Blob tạm PDF/Word\nin-memory (dev) / Redis (prod)\nREDIS_URL + BLOB_TTL")]
     end
 
     subgraph EXT ["External"]
@@ -44,7 +47,8 @@ graph TB
     Admin -->|REST| Routes
     Chat -->|"tải .docx"| CVRoutes
 
-    Routes -->|"chatbot.ainvoke()"| LG
+    Routes -->|"chatbot.invoke(thread_id)"| LG
+    Routes -->|"upsert / list / delete"| CONV
     Routes -->|"detect markers\npost-process"| MEM
 
     LLM -->|"ChatOpenAI API"| LLMProxy
@@ -68,3 +72,5 @@ graph TB
     style LG fill:#f8f9fa,stroke:#6c757d
     style SKILLS fill:#e8f5e9,stroke:#4caf50
     style MINIO fill:#fde2e4,stroke:#e63946
+    style CKPT fill:#e7e0ff,stroke:#7c3aed
+    style CONV fill:#e0f2fe,stroke:#0284c7

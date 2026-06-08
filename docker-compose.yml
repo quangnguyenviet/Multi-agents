@@ -40,5 +40,33 @@ services:
       "
     restart: "no"
 
+  # ── Production backends (chỉ chạy khi: docker compose --profile prod up -d) ──
+  # Khớp DATABASE_URL=postgresql://evo:evo@localhost:5432/evo và REDIS_URL=redis://localhost:6379/0
+  postgres:
+    image: postgres:16-alpine
+    container_name: evo-postgres
+    profiles: ["prod"]
+    environment:
+      POSTGRES_USER: evo
+      POSTGRES_PASSWORD: evo
+      POSTGRES_DB: evo
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: evo-redis
+    profiles: ["prod"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
 volumes:
   minio_data:
+  postgres_data:
+  redis_data:

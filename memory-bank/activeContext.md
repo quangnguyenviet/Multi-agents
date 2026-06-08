@@ -2,7 +2,36 @@
 
 ## Trọng tâm phát triển hiện tại
 
-### 📄 CV Processor — 2 mẫu Word + dịch Anh/Việt, bỏ HTML & trang riêng (MỚI NHẤT) ✅
+### 🔌 Storage backend cấu hình được: SQLite↔Postgres + Redis (MỚI NHẤT) ✅
+Refactor để đổi nguồn lưu trữ qua env, sẵn cho production. **Default (env trống) = SQLite + in-memory = y hệt trước** (tương thích ngược tuyệt đối, lazy import nên dev không cần cài driver mới).
+- **Config** (`settings.py`): `DB_BACKEND` (sqlite|postgres), `DATABASE_URL`, `REDIS_URL` (rỗng = in-memory), `BLOB_TTL`.
+- **Checkpointer** (`workflow.py`): factory `_make_checkpointer()` → `SqliteSaver` (dev) hoặc `PostgresSaver` + `psycopg_pool.ConnectionPool` (production, xử lý concurrency). `.setup()` tự tạo bảng.
+- **conversation_store.py**: chọn sqlite3/psycopg theo `DB_BACKEND`; placeholder `_PH` (`?`/`%s`); upsert hợp nhất bằng `ON CONFLICT (id) DO UPDATE`; helper `_run()` đóng connection đúng (sqlite cần commit, psycopg autocommit). Chữ ký hàm KHÔNG đổi → routes y nguyên.
+- **blob_store.py** (mới): `make_blob_store(prefix)` → `_MemoryBlobStore` (dict) hoặc `_RedisBlobStore` (bytes + TTL, share đa worker). Interface dict-like (`[]`, `.get`, `.pop`, `in`). `cv_tools._pdf_store/_cv_docx_store` dùng nó — **fix luôn rò rỉ `_cv_docx_store`** khi dùng Redis.
+- **`requirements-prod.txt`** (tách riêng): `langgraph-checkpoint-postgres`, `psycopg[binary]`, `psycopg-pool`, `redis`.
+- **docker-compose**: thêm `postgres` + `redis` dưới `profiles:["prod"]` (`docker compose --profile prod up -d`). DEV_COMMANDS có hướng dẫn.
+- employees/`company.db` ngoài phạm vi (vẫn SQLite — demo seed).
+
+### 🗂️ UI chọn cuộc hội thoại cũ — danh sách + nạp lại + xóa ✅
+Thêm quản lý nhiều cuộc hội thoại trên UI (sidebar trái, kiểu ChatGPT):
+- **Store mới** `backend/storage/conversation_store.py` (SQLite `data/conversations.db`): bảng `conversations(id, user_id, title, created_at, updated_at)`. `upsert` (tạo mới đặt title = câu hỏi đầu, hoặc cập nhật updated_at), `list_for_user`, `owner`, `delete`.
+- **Endpoints** (routes.py): `GET /api/conversations?user_id` (list mới nhất trước), `GET /api/conversations/{id}/messages?user_id` (nạp lại từ `chatbot.get_state` → map Human→user, AIMessage có content→assistant; cắt phần ghi chú file), `DELETE /api/conversations/{id}?user_id` (xóa store + `delete_thread` checkpoint). `/api/chat` gọi `conversation_store.upsert(...)` sau mỗi lượt.
+- **`workflow.py`**: thêm `delete_thread(thread_id)` (dùng `SqliteSaver.delete_thread`).
+- **Frontend**: `App.jsx` state `conversations` + `fetchConversations` (khi login & sau mỗi lượt gửi), `loadConversation` (nạp messages → setChatMessages + setConversationId), `deleteConversation`. `Sidebar.jsx` hiển thị danh sách (title, active highlight, nút xóa hover) + nút "Chat mới" (đã chuyển từ header ChatWorkspace sang sidebar). CSS `.conv-*` trong index.css.
+- ⚠️ Nạp lại history chỉ hiện text (không khôi phục nút tải Word lượt cũ — `_cv_docx_store` in-memory mất khi restart).
+
+### 💬 Chat nhớ lịch sử hội thoại — LangGraph checkpointer + SQLite ✅
+Trước đây chat KHÔNG nhớ giữa các lượt (compile không checkpointer, ainvoke state mới mỗi request). Đã thêm trí nhớ:
+- **Checkpointer SQLite**: `workflow.py` compile `chatbot` với `SqliteSaver(sqlite3.connect("data/checkpoints.db", check_same_thread=False))` + `.setup()`. Bền qua restart. `build_multi_agent_system(checkpointer=None)`.
+- **Per-conversation**: `/api/chat` nhận `conversation_id` (Form) → `thread_id`. Mỗi cuộc 1 thread, lịch sử độc lập.
+- **llm_node rework**: dùng `state["messages"]` (history đã persist). Lượt mới → thêm `HumanMessage(query)` vào history; re-entry (sau ToolNode) → không thêm. SystemMessage dựng mỗi lần gọi (catalog skill luôn mới), KHÔNG lưu. Trả `new_messages` (human + response) cho add_messages reducer. (Bỏ logic prepend hacky cũ.)
+- **Invoke sync trong thread**: `await asyncio.to_thread(chatbot.invoke, input, config)` (node/tool đều sync → dùng SqliteSaver sync, tránh AsyncSqliteSaver + refactor lifecycle).
+- **Quét `__docx_id__` chỉ trong lượt hiện tại**: scan ngược `result["messages"]`, dừng khi gặp `HumanMessage` → không lấy nhầm file Word của lượt cũ.
+- **Frontend**: `App.jsx` giữ `conversationId` (uuid, sinh khi login/"Chat mới"/logout), gửi kèm mỗi lượt. Nút **"Chat mới"** ở `ChatWorkspace` header → reset chatMessages + conversation_id mới.
+- ⚠️ **Version pin**: `langgraph 0.2.76` (core) chỉ hợp `langgraph-checkpoint-sqlite>=2.0,<3` (bản 3.x serialize metadata bằng json.dumps → lỗi Message not serializable). requirements pin `<3`.
+- Lưu ý tương lai: history gửi nguyên mỗi lượt → token tăng dần (chưa cắt/tóm tắt). `data/checkpoints.db` đã gitignore.
+
+### 📄 CV Processor — 2 mẫu Word + dịch Anh/Việt, bỏ HTML & trang riêng ✅
 Yêu cầu gốc: user vứt CV bất kỳ → AI xuất ra **1 trong 2 mẫu file Word** theo yêu cầu + dịch Anh/Việt. Chỉ xử lý qua **chat**.
 - **2 mẫu Word** trong 1 tool: `generate_cv_word_file(cv_json, template_id="1"|"2")`.
   - `_build_docx_template1` = Bản Lý Lịch Chuyên Môn (nhân sự chủ chốt) — như cũ.
@@ -71,7 +100,7 @@ Các session trước đó đã hoàn thành:
 ## Cấu trúc backend/agents/ hiện tại
 ```
 backend/agents/
-├── workflow.py         ← START → llm → tools → llm → END
+├── workflow.py         ← START → llm → tools → llm → END + SqliteSaver checkpointer + delete_thread()
 ├── workflow_state.py   ← 5 fields: user_id, user_name, query, agent_response, messages
 ├── llm_node.py         ← LLM bind 8 tools, _build_system_prompt() (catalog skill), logging
 ├── instances.py        ← skill_registry(ttl, fetch_fn=load_skills_from_minio) + warm()
@@ -100,7 +129,9 @@ backend/tools/
 ```
 
 ## Lưu ý kỹ thuật quan trọng
-- `/api/chat` dùng `Form(...)` + `File(None)` — **không còn là JSON endpoint**. Frontend phải gửi FormData (không set Content-Type header)
+- `/api/chat` dùng `Form(...)` + `File(None)` — **không còn là JSON endpoint**. Frontend phải gửi FormData (không set Content-Type header). **Bắt buộc kèm `conversation_id`** (thread_id cho checkpointer) — quên là 422
+- **Chat nhớ lịch sử** theo `conversation_id` (checkpointer). Lượt sau cùng conversation_id thấy lại history. "Chat mới" = conversation_id mới. Gọi qua `asyncio.to_thread(chatbot.invoke, ..., config)`
+- **Storage backend đổi qua env**: `DB_BACKEND=sqlite|postgres` (checkpointer + conversations), `REDIS_URL` (rỗng=in-memory blob). Default = SQLite + in-memory. Driver postgres/redis lazy import (chỉ cần `requirements-prod.txt` khi production). employees vẫn SQLite
 - `_pdf_store` bị xóa sau mỗi request. `_cv_docx_store` không bao giờ xóa — memory leak lâu dài
 - `cv_agent.py` phải ở `backend/` root (tránh UnicodeEncodeError Windows cp1252). Tương tự: KHÔNG dùng emoji trong `print` (loader/registry dùng `[SKILL]` ASCII)
 - `_build_system_prompt()` gọi mỗi request, inject **CATALOG** (name+description) của mọi skill — KHÔNG nhồi body. LLM gọi `load_skill(name)` để lấy chi tiết

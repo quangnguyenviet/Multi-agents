@@ -95,6 +95,30 @@ docker compose config -q
 
 > Skill refresh theo TTL (`SKILLS_CACHE_TTL`, mặc định 300s): sửa/upload `.md` lên MinIO sẽ có hiệu lực sau TTL, **không cần restart backend**. Nếu MinIO chưa chạy, backend vẫn khởi động bình thường (registry rỗng, tự thử lại sau TTL).
 
+## Storage backend (dev SQLite ↔ production Postgres/Redis)
+
+Mặc định (không set env): **SQLite** cho lịch sử chat + hội thoại, **in-memory** cho file tạm (PDF/Word). Đủ cho dev/1 máy.
+
+Production — bật Postgres + Redis:
+
+```bash
+# 1. Cài driver production
+cd backend
+pip install -r requirements.txt -r requirements-prod.txt
+
+# 2. Chạy Postgres + Redis (profile prod, không tự chạy ở dev)
+docker compose --profile prod up -d        # kèm cả MinIO
+
+# 3. Đặt env trong backend/.env rồi chạy server
+#    DB_BACKEND=postgres
+#    DATABASE_URL=postgresql://evo:evo@localhost:5432/evo
+#    REDIS_URL=redis://localhost:6379/0
+```
+
+- Backend tự `setup()` bảng checkpoint (Postgres) + bảng `conversations` lúc khởi động.
+- File Word/PDF tạm lưu Redis kèm TTL (`BLOB_TTL`, mặc định 3600s) → share giữa worker, không rò rỉ bộ nhớ.
+- Có thể chạy nhiều worker: `python -m uvicorn server:app --workers 2 --port 8000`.
+
 ## Debug backend trong VS Code
 
 - Mở workspace trong VS Code, chọn Run & Debug, chọn cấu hình `Python: Uvicorn (server:app)` rồi nhấn F5.

@@ -1,0 +1,6 @@
+# Dependencies bổ sung cho production (chỉ cần khi DB_BACKEND=postgres hoặc dùng REDIS_URL).
+# Cài: pip install -r requirements.txt -r requirements-prod.txt
+langgraph-checkpoint-postgres>=2.0,<3
+psycopg[binary]>=3.1
+psycopg-pool>=3.2
+redis>=5.0
