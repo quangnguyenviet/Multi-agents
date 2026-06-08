@@ -1652,3 +1652,267 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.15);
 }
+
+/* -----------------------------------------
+   LOGIN — input username / password
+------------------------------------------ */
+.login-input-wrapper {
+    position: relative;
+}
+
+.login-input-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 15px;
+    pointer-events: none;
+}
+
+.login-input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    padding: 14px 16px 14px 44px;
+    color: white;
+    font-family: var(--font-inter);
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.3s;
+}
+
+.login-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 12px var(--color-primary-glow);
+}
+
+.login-input::placeholder {
+    color: var(--text-muted);
+}
+
+.login-error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #f87171;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+}
+
+/* -----------------------------------------
+   USER MANAGER
+------------------------------------------ */
+.user-add-section {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+
+.user-section-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+}
+
+.user-error {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.user-add-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.user-input {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-glass);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: white;
+    font-family: var(--font-inter);
+    font-size: 13.5px;
+    outline: none;
+    flex: 1 1 140px;
+    min-width: 100px;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.user-input:focus {
+    border-color: var(--color-primary);
+}
+
+.user-input::placeholder {
+    color: var(--text-muted);
+}
+
+.user-add-btn {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+    border: none;
+    color: white;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+}
+
+.user-add-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.user-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border-glass);
+    border-radius: 14px;
+}
+
+.user-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+
+.user-table th {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-glass);
+}
+
+.user-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text-primary);
+}
+
+.user-table tbody tr:last-child td { border-bottom: none; }
+
+.user-table tbody tr:hover td {
+    background: rgba(255,255,255,0.03);
+}
+
+.user-row-me td {
+    background: rgba(99,102,241,0.06);
+}
+
+.user-username {
+    font-family: var(--font-mono, monospace);
+    font-size: 13px;
+    color: var(--color-primary);
+    background: rgba(99,102,241,0.1);
+    padding: 2px 7px;
+    border-radius: 6px;
+}
+
+.role-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 9px;
+    border-radius: 6px;
+}
+.role-badge.role-admin   { background: rgba(239,68,68,0.15);  color: #f87171; }
+.role-badge.role-user    { background: rgba(34,197,94,0.12);  color: #4ade80; }
+
+.user-action-btn {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border-glass);
+    background: transparent;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    transition: all 0.15s;
+}
+.user-action-btn.edit  { color: var(--color-primary); }
+.user-action-btn.edit:hover  { background: rgba(99,102,241,0.15); border-color: var(--color-primary); }
+.user-action-btn.delete { color: #f87171; }
+.user-action-btn.delete:hover { background: rgba(239,68,68,0.15); border-color: #f87171; }
+
+/* ── Edit modal ── */
+.user-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 3000;
+}
+
+.user-modal {
+    background: rgba(22, 23, 30, 0.95);
+    border: 1px solid var(--border-glass);
+    border-radius: 18px;
+    padding: 28px 32px;
+    width: 380px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+}
+
+.user-modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 4px;
+}
+
+.user-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.user-cancel-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border-glass);
+    color: var(--text-secondary);
+    padding: 9px 18px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 13.5px;
+    transition: background 0.15s;
+}
+.user-cancel-btn:hover { background: rgba(255,255,255,0.1); }
+
+.user-save-btn {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    border: none;
+    color: white;
+    padding: 9px 20px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 13.5px;
+    font-weight: 600;
+    transition: opacity 0.15s;
+}
+.user-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }

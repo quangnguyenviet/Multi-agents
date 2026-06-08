@@ -9,9 +9,10 @@ from tools.cv_tools import _pdf_store, _cv_docx_store
 
 # Import storage modules
 from storage import agent_store, conversation_store
+from storage import user_store
 
 # Import Pydantic schemas
-from .models import AgentPromptRequest, CreateAgentRequest
+from .models import AgentPromptRequest, CreateAgentRequest, LoginRequest, CreateUserRequest, UpdateUserRequest
 
 # Import skill registry and chatbot graph
 from agents import chatbot, skill_registry
@@ -22,17 +23,74 @@ from agents.llm_node import TOOLS
 
 router = APIRouter()
 
-# API get user info (dùng cho login)
+# ============================================================
+# AUTH & USER MANAGEMENT
+# ============================================================
+
+@router.post("/auth/login")
+async def login(req: LoginRequest):
+    """Đăng nhập bằng username + password. Trả user info nếu đúng."""
+    user = user_store.verify_password(req.username, req.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Sai tên đăng nhập hoặc mật khẩu")
+    return {"user_id": user["id"], "username": user["username"], "name": user["name"], "role": user["role"]}
+
+
 @router.get("/user")
 async def get_user(user_id: str = Query(...)):
-    user_info = db.get_user_info(user_id)
-    if not user_info:
-        raise HTTPException(status_code=404, detail="User ID không tồn tại")
-    return {
-        "user_id": user_id,
-        "name": user_info["name"],
-        "role": user_info["role"],
-    }
+    """Lấy thông tin user theo id (dùng nội bộ / backward compat)."""
+    user = user_store.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User không tồn tại")
+    return {"user_id": user["id"], "name": user["name"], "role": user["role"]}
+
+
+@router.get("/users")
+async def list_users(user_id: str = Query(...)):
+    """Danh sách tất cả users (admin only)."""
+    me = user_store.get_by_id(user_id)
+    if not me:
+        raise HTTPException(status_code=404, detail="User không tồn tại")
+    if me["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới xem được danh sách users")
+    return user_store.list_all()
+
+
+@router.post("/users")
+async def create_user_endpoint(req: CreateUserRequest, admin_id: str = Query(...)):
+    """Tạo user mới (admin only)."""
+    me = user_store.get_by_id(admin_id)
+    if not me or me["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới tạo được user")
+    try:
+        user = user_store.create_user(req.username, req.password, req.name, req.role)
+        return user
+    except Exception as e:
+        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+            raise HTTPException(status_code=409, detail=f"Username '{req.username}' đã tồn tại")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/users/{uid}")
+async def update_user_endpoint(uid: str, req: UpdateUserRequest, admin_id: str = Query(...)):
+    """Cập nhật name/role/password của user (admin only)."""
+    me = user_store.get_by_id(admin_id)
+    if not me or me["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới sửa được user")
+    user_store.update_user(uid, name=req.name, role=req.role, password=req.password)
+    return {"success": True}
+
+
+@router.delete("/users/{uid}")
+async def delete_user_endpoint(uid: str, admin_id: str = Query(...)):
+    """Xóa user (admin only, không tự xóa chính mình)."""
+    me = user_store.get_by_id(admin_id)
+    if not me or me["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Chỉ admin mới xóa được user")
+    if uid == admin_id:
+        raise HTTPException(status_code=400, detail="Không thể tự xóa chính mình")
+    user_store.delete_user(uid)
+    return {"success": True}
 
 # API get all skills (read-only — source of truth là file Markdown trong skills/library)
 @router.get("/skills")

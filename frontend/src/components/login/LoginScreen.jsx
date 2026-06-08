@@ -1,12 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-function LoginScreen({ handleQuickLogin }) {
+function LoginScreen({ handleLogin }) {
   const navigate = useNavigate();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const onLogin = (userId) => {
-    handleQuickLogin(userId);
-    navigate('/chat');
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      setError('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    const err = await handleLogin(username.trim(), password.trim());
+    setLoading(false);
+    if (err) {
+      setError(err);
+    } else {
+      navigate('/chat');
+    }
   };
 
   return (
@@ -19,31 +35,50 @@ function LoginScreen({ handleQuickLogin }) {
         <div className="login-logo"><i className="fa-solid fa-brain"></i></div>
         <h1 className="login-title">Evo Agents Portal</h1>
         <p className="login-subtitle">Hệ thống Multi-Agent & Kích hoạt Kỹ năng động</p>
-        
-        <div className="login-form">
-          <div className="login-select-wrapper">
-            <span className="login-select-icon"><i className="fa-solid fa-user-shield"></i></span>
-            <select id="loginUserSelect" className="login-select" defaultValue="adm_001" onChange={(e) => onLogin(e.target.value)}>
-              <option value="" disabled>-- Chọn tài khoản --</option>
-              <option value="adm_001">Nguyen Admin (ADMIN)</option>
-              <option value="acc_001">Le Van C (ACCOUNTANT)</option>
-              <option value="emp_001">Nguyen Van A (EMPLOYEE)</option>
-            </select>
+
+        <form className="login-form" onSubmit={onSubmit}>
+          <div className="form-group">
+            <label className="form-label" htmlFor="login-username">Tên đăng nhập</label>
+            <div className="login-input-wrapper">
+              <span className="login-input-icon"><i className="fa-solid fa-user"></i></span>
+              <input
+                id="login-username"
+                type="text"
+                className="login-input"
+                placeholder="Nhập username..."
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                autoFocus
+              />
+            </div>
           </div>
-          
-          <button className="login-btn" onClick={() => onLogin("adm_001")}>
-            <span>Đăng nhập hệ thống (Mặc định Admin)</span>
-            <i className="fa-solid fa-arrow-right-to-bracket"></i>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="login-password">Mật khẩu</label>
+            <div className="login-input-wrapper">
+              <span className="login-input-icon"><i className="fa-solid fa-lock"></i></span>
+              <input
+                id="login-password"
+                type="password"
+                className="login-input"
+                placeholder="Nhập mật khẩu..."
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+          </div>
+
+          {error && <div className="login-error">{error}</div>}
+
+          <button className="login-btn" type="submit" disabled={loading}>
+            {loading
+              ? <><i className="fa-solid fa-spinner fa-spin"></i><span>Đang xác thực...</span></>
+              : <><span>Đăng nhập</span><i className="fa-solid fa-arrow-right-to-bracket"></i></>
+            }
           </button>
-        </div>
-        
-        <div className="login-demo-accounts">
-          <p className="demo-accounts-title">Lựa chọn tài khoản Demo nhanh</p>
-          <div className="demo-grid">
-            <div className="demo-badge" onClick={() => onLogin('adm_001')}>🔑 Quản trị viên (Admin)</div>
-            <div className="demo-badge" onClick={() => onLogin('emp_001')}>👥 Nhân viên (Employee)</div>
-          </div>
-        </div>
+        </form>
       </div>
     </div>
   );

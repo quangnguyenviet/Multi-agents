@@ -2,7 +2,22 @@
 
 ## Trọng tâm phát triển hiện tại
 
-### 🔌 Storage backend cấu hình được: SQLite↔Postgres + Redis (MỚI NHẤT) ✅
+### 👤 User Management — đăng nhập thật + CRUD qua UI (MỚI NHẤT) ✅
+Thay login dropdown hardcoded bằng hệ thống đăng nhập username/password thật, lưu trong Postgres, admin quản lý được users qua UI.
+- **`backend/storage/user_store.py`** (Postgres only): bảng `users(id, username, password_hash, name, role, created_at)`. Dùng `bcrypt` trực tiếp (không passlib — không tương thích bcrypt>=4.0). Hàm: `init_table`, `seed_default_users`, `verify_password`, `get_by_id`, `list_all`, `create_user`, `update_user`, `delete_user`. Seed mặc định: `admin/admin123/admin`, `user1/user123/user`.
+- **API mới** (`routes.py`): `POST /api/auth/login` (JSON `{username,password}` → `{user_id,username,name,role}` hoặc 401), `GET /api/users` (admin), `POST /api/users` (admin), `PUT /api/users/{id}` (admin), `DELETE /api/users/{id}` (admin, không tự xóa chính mình). `GET /api/user?user_id=` giữ lại dùng user_store thay vì employees table.
+- **`server.py`**: gọi `user_store.init_table()` + `user_store.seed_default_users()` khi startup (bao try/except).
+- **`requirements.txt`**: thêm `bcrypt>=4.0.0`.
+- **`LoginScreen.jsx`**: viết lại — form 2 field (username, password), error inline, loading state. Prop đổi từ `handleQuickLogin` → `handleLogin`.
+- **`App.jsx`**: `handleLogin(username, password)` gọi `POST /api/auth/login`, state `users` + `fetchUsers()` (admin), route `/admin/users` → `<UserManager>`, truyền `usersCount` vào Sidebar.
+- **`UserManager.jsx`** (mới): bảng danh sách users, form thêm user mới (username/password/name/role), nút sửa (modal: name/role/đổi password tùy chọn), nút xóa. Admin không tự xóa mình được.
+- **`Sidebar.jsx`**: thêm NavLink "Quản lý Users" cho admin (badge usersCount, màu accent).
+- **`index.css`**: thêm `.login-input`, `.login-input-wrapper`, `.login-error`, `.user-table`, `.user-add-form`, `.user-modal-*`, `.role-badge`, `.user-action-btn`.
+- ⚠️ `passlib` không tương thích `bcrypt>=4.0` (`__about__` removed → crash khi hash). Đã bỏ passlib, dùng `bcrypt.hashpw`/`bcrypt.checkpw` trực tiếp.
+- ⚠️ psycopg3 `Connection` không có `executemany()` — phải dùng `conn.cursor().executemany()`.
+- ⚠️ User store Postgres only — không có SQLite fallback (khác conversation_store). Nếu `DB_BACKEND != postgres` thì user store không hoạt động.
+
+### 🔌 Storage backend cấu hình được: SQLite↔Postgres + Redis ✅
 Refactor để đổi nguồn lưu trữ qua env, sẵn cho production. **Default (env trống) = SQLite + in-memory = y hệt trước** (tương thích ngược tuyệt đối, lazy import nên dev không cần cài driver mới).
 - **Config** (`settings.py`): `DB_BACKEND` (sqlite|postgres), `DATABASE_URL`, `REDIS_URL` (rỗng = in-memory), `BLOB_TTL`.
 - **Checkpointer** (`workflow.py`): factory `_make_checkpointer()` → `SqliteSaver` (dev) hoặc `PostgresSaver` + `psycopg_pool.ConnectionPool` (production, xử lý concurrency). `.setup()` tự tạo bảng.
@@ -97,6 +112,25 @@ Các session trước đó đã hoàn thành:
    - Đơn giản hóa các endpoints `/skills`, `/create_skill`, `/skills/draft`, `/skills/publish`, `/delete_skill`
    - Viết lại `main.py` CLI không còn multi-agent commands
 
+## Cấu trúc storage/ hiện tại (user management)
+```
+backend/storage/
+├── user_store.py       ← users (Postgres only): CRUD + bcrypt verify — NGUỒN login
+├── conversation_store.py ← metadata hội thoại (SQLite dev / Postgres prod)
+├── blob_store.py       ← blob tạm PDF/Word (in-memory / Redis)
+├── minio_skills.py     ← MinIO client wrapper
+└── agent_store.py
+```
+
+## Login flow mới
+```
+LoginScreen → POST /api/auth/login {username, password}
+  → user_store.verify_password() (bcrypt.checkpw)
+  → 200: {user_id, username, name, role}  hoặc  401
+  → App.jsx setCurrentUser({id, username, name, role, avatar})
+  → nếu role=admin → fetchUsers(user_id) → /api/users
+```
+
 ## Cấu trúc backend/agents/ hiện tại
 ```
 backend/agents/
@@ -158,5 +192,5 @@ Không còn (skill): skills/factory.py, skills/builtin/, storage/custom_skills/*
 ```
 
 ## Nhiệm vụ tiếp theo
-- **Xác thực JWT**: Nâng cấp phân quyền từ `user_id` form param hiện tại sang Token JWT bảo mật
+- **JWT Authentication**: Nâng cấp từ user_id plain param sang Bearer token JWT (đăng nhập trả token, middleware verify)
 - **Cleanup in-memory store**: Thêm TTL/auto-cleanup cho `_cv_docx_store` để tránh memory leak

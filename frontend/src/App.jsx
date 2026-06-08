@@ -9,6 +9,7 @@ import LoginScreen from './components/login/LoginScreen';
 import ChatWorkspace from './components/chat/ChatWorkspace';
 import SkillManager from './components/admin/SkillManager';
 import ToolRegistry from './components/admin/ToolRegistry';
+import UserManager from './components/admin/UserManager';
 
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
   /* DYNAMIC REGISTRIES */
   const [skills, setSkills] = useState([]);
   const [tools, setTools] = useState([]);
+  const [users, setUsers] = useState([]);
 
   /* CHAT STATES */
   const [chatMessages, setChatMessages] = useState([]);
@@ -57,57 +59,61 @@ function App() {
     addLog("Multi-Agent LangGraph runtime compiled successfully.", "info");
   }, []);
 
-  /* QUICK LOGIN HANDLER */
-  const handleQuickLogin = async (userId) => {
+  /* LOGIN HANDLER — username + password */
+  const handleLogin = async (username, password) => {
     try {
-      addLog(`Authenticating User ID: ${userId}...`, "info");
-
-      // Bắt đầu một cuộc trò chuyện mới khi đăng nhập
+      addLog(`Authenticating: ${username}...`, "info");
       setConversationId(crypto.randomUUID());
 
-      const res = await fetch(`/api/user?user_id=${userId}`);
-      if (!res.ok) throw new Error("Không thể kết nối đến máy chủ backend!");
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
       const data = await res.json();
+      if (!res.ok) return data.detail || "Sai tên đăng nhập hoặc mật khẩu";
 
-      setCurrentUser({
+      const user = {
         id: data.user_id,
+        username: data.username,
         name: data.name,
         role: data.role,
-        avatar: data.name.split(" ").map(w => w[0]).join("").toUpperCase().substring(0, 2)
-      });
+        avatar: data.name.split(" ").map(w => w[0]).join("").toUpperCase().substring(0, 2),
+      };
+      setCurrentUser(user);
 
       // Fetch tools
       try {
         const toolsRes = await fetch("/api/tools");
-        if (toolsRes.ok) {
-          const toolsData = await toolsRes.json();
-          setTools(toolsData);
-          addLog(`Loaded ${toolsData.length} tools from backend.`, "success");
-        }
-      } catch (toolsErr) {
-        addLog(`Tool fetch failed: ${toolsErr.message}`, "warning");
-      }
+        if (toolsRes.ok) { const d = await toolsRes.json(); setTools(d); addLog(`Loaded ${d.length} tools.`, "success"); }
+      } catch (e) { addLog(`Tool fetch failed: ${e.message}`, "warning"); }
 
-      // Fetch skills (catalog read-only)
+      // Fetch skills
       try {
         const skillsRes = await fetch("/api/skills");
-        if (skillsRes.ok) {
-          const skillsData = await skillsRes.json();
-          setSkills(skillsData);
-          addLog(`Loaded ${skillsData.length} skills from backend.`, "success");
-        }
-      } catch (skillsErr) {
-        addLog(`Skill fetch failed: ${skillsErr.message}`, "warning");
-      }
+        if (skillsRes.ok) { const d = await skillsRes.json(); setSkills(d); addLog(`Loaded ${d.length} skills.`, "success"); }
+      } catch (e) { addLog(`Skill fetch failed: ${e.message}`, "warning"); }
 
-      // Fetch danh sách cuộc hội thoại cũ
+      // Fetch users nếu admin
+      if (data.role === "admin") fetchUsers(data.user_id);
+
       fetchConversations(data.user_id);
-
       addLog(`Login completed! Role: ${data.role.toUpperCase()}`, "success");
-      triggerToast(`Đăng nhập thành công với vai trò ${data.role.toUpperCase()}!`);
+      triggerToast(`Xin chào ${data.name}!`);
+      return null; // không có lỗi
     } catch (err) {
       addLog(`Login Failed: ${err.message}`, "error");
-      alert(`Đăng nhập thất bại: ${err.message}`);
+      return err.message;
+    }
+  };
+
+  /* FETCH danh sách users (admin) */
+  const fetchUsers = async (adminId) => {
+    try {
+      const res = await fetch(`/api/users?user_id=${adminId}`);
+      if (res.ok) setUsers(await res.json());
+    } catch (err) {
+      addLog(`User list fetch failed: ${err.message}`, "warning");
     }
   };
 
@@ -119,6 +125,7 @@ function App() {
     setConversations([]);
     setSkills([]);
     setTools([]);
+    setUsers([]);
     addLog(`User logged out from session`, "warning");
     navigate('/login');
   };
@@ -241,13 +248,13 @@ function App() {
 
   /* RENDER LOGIN IF NOT LOGGED IN */
   if (!currentUser) {
-    return <LoginScreen handleQuickLogin={handleQuickLogin} />;
+    return <LoginScreen handleLogin={handleLogin} />;
   }
 
   /* MAIN DASHBOARD RENDER WITH REACT ROUTER */
   return (
     <Routes>
-      <Route path="/login" element={<LoginScreen handleQuickLogin={handleQuickLogin} />} />
+      <Route path="/login" element={<LoginScreen handleLogin={handleLogin} />} />
       
       {/* Route Guard: Checks if user is logged in, redirects to /login if not */}
       <Route 
@@ -266,6 +273,7 @@ function App() {
                 currentUser={currentUser}
                 skillsCount={skills.length}
                 toolsCount={tools.length}
+                usersCount={users.length}
                 handleLogout={handleLogout}
                 conversations={conversations}
                 activeConversationId={conversationId}
@@ -294,19 +302,19 @@ function App() {
                     <>
                       <Route
                         path="admin/skills"
-                        element={
-                          <SkillManager
-                            activeTab="tab-skills"
-                            skills={skills}
-                          />
-                        }
+                        element={<SkillManager activeTab="tab-skills" skills={skills} />}
                       />
                       <Route
                         path="admin/tools"
+                        element={<ToolRegistry activeTab="tab-tools" tools={tools} />}
+                      />
+                      <Route
+                        path="admin/users"
                         element={
-                          <ToolRegistry
-                            activeTab="tab-tools"
-                            tools={tools}
+                          <UserManager
+                            currentUser={currentUser}
+                            users={users}
+                            onRefresh={() => fetchUsers(currentUser.id)}
                           />
                         }
                       />

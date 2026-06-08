@@ -14,8 +14,16 @@ from fastapi.middleware.cors import CORSMiddleware
 # Import router from api/routes.py
 from api.routes import router as api_router
 from api.cv_routes import cv_router
+from storage import user_store
 
 app = FastAPI(title="Evo Agents Multi-Agent RBAC Studio")
+
+# Khởi tạo bảng users + seed mặc định khi startup
+try:
+    user_store.init_table()
+    user_store.seed_default_users()
+except Exception as _e:
+    logging.warning(f"[USER] Khong the init user_store: {_e}")
 
 # Enable CORS for local development
 app.add_middleware(

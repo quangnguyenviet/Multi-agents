@@ -5,6 +5,7 @@ function Sidebar({
   currentUser,
   skillsCount,
   toolsCount,
+  usersCount = 0,
   handleLogout,
   conversations = [],
   activeConversationId,
@@ -58,6 +59,15 @@ function Sidebar({
               <i className="fa-solid fa-screwdriver-wrench"></i>
               <span>Quản lý Tools</span>
               <span className="nav-item-badge" style={{ background: 'var(--color-primary)' }}>{toolsCount}</span>
+            </NavLink>
+
+            <NavLink
+              to="/admin/users"
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              <i className="fa-solid fa-users"></i>
+              <span>Quản lý Users</span>
+              <span className="nav-item-badge" style={{ background: 'var(--color-accent)' }}>{usersCount}</span>
             </NavLink>
           </>
         )}

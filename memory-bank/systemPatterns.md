@@ -110,7 +110,15 @@ Frontend FormData (user_id, query, file?)
 - **`ChatInputBar.jsx`**: state `attachedFile`, nút đính kèm, file badge
 - **`MessageItem.jsx`**: `msg-bubble` (text) + `word-download-card` (nút tải `.docx` nếu wordDownloadUrl). Không còn iframe HTML / trang CV Processor
 
-### 9. Tích hợp LLM & Proxy
+### 9. User Store & Authentication
+- **`backend/storage/user_store.py`** — Postgres only (không SQLite fallback). Kết nối qua `psycopg.connect(settings.DATABASE_URL, autocommit=True)`.
+- **Password hashing**: `bcrypt.hashpw(pw.encode(), bcrypt.gensalt(12))` / `bcrypt.checkpw()` trực tiếp — KHÔNG dùng passlib (không tương thích bcrypt>=4.0).
+- **Seed**: `seed_default_users()` insert nếu bảng rỗng. `server.py` gọi `init_table()` + `seed_default_users()` khi startup.
+- **API login**: `POST /api/auth/login` (JSON `{username, password}`) → 200 `{user_id, username, name, role}` hoặc 401.
+- **CRUD users**: `GET/POST /api/users?user_id=<admin_id>` (admin only). `PUT/DELETE /api/users/{id}?admin_id=<id>`. Không cho admin tự xóa mình.
+- **psycopg3 caveat**: `Connection` không có `executemany()` trực tiếp — dùng `conn.cursor().executemany()`.
+
+### 10. Tích hợp LLM & Proxy
 - **9Router LLM Proxy**: `http://172.31.2.23:20128/v1`, model `evotek_flash`
 - **Vite Proxy**: Dev port 3000 → Backend port 8000
 - **FastAPI Static**: Serve React build từ `/frontend/dist/`
