@@ -1,5 +1,5 @@
-# backend/agents/instances.py
-from config.settings import settings
+﻿# backend/agents/instances.py
+from core.settings import settings
 from skills.registry import SkillRegistry
 from skills.loader import load_skills_from_minio
 

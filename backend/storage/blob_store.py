@@ -1,6 +1,6 @@
-# Blob store tạm cho file bytes (PDF/Word). Backend: in-memory (dev) hoặc Redis (production).
+﻿# Blob store tạm cho file bytes (PDF/Word). Backend: in-memory (dev) hoặc Redis (production).
 # Interface dict-like để chỗ dùng không phải đổi: store[k]=v, store.get(k), store.pop(k, d), k in store
-from config.settings import settings
+from core.settings import settings
 
 
 class _MemoryBlobStore:

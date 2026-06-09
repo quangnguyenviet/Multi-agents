@@ -6,6 +6,7 @@ description: Chuyển đổi CV (PDF người dùng upload) thành file Word the
 Khi người dùng upload CV (context chứa `file_id`), thực hiện đúng thứ tự:
 
 1. **Đọc CV**: gọi `read_cv_file` với `file_id` → JSON có cấu trúc.
+   - Nếu người dùng không upload file mới nhưng đã upload trong hội thoại này, lấy `file_id` từ lịch sử hội thoại và gọi lại — dữ liệu đã được cache, không cần upload lại.
 
 2. **Chọn mẫu**: hệ thống có 2 mẫu Word:
    - **Mẫu 1 — Bản Lý Lịch Chuyên Môn** (nhân sự chủ chốt): bảng gọn, kinh nghiệm dạng thời gian | nội dung.

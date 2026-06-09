@@ -15,7 +15,7 @@ from storage import agent_store, conversation_store
 from storage import user_store
 
 # Import Pydantic schemas
-from .models import AgentPromptRequest, CreateAgentRequest, LoginRequest, CreateUserRequest, UpdateUserRequest
+from .schemas import AgentPromptRequest, CreateAgentRequest, LoginRequest, CreateUserRequest, UpdateUserRequest
 
 # Import skill registry and chatbot graph
 from agents import chatbot, skill_registry
@@ -126,7 +126,7 @@ async def chat(
                 f"sau đó phản hồi phù hợp với nội dung thực tế của file.]"
             )
 
-        # thread_id = conversation_id → checkpointer SQLite tự nạp/lưu lịch sử của cuộc
+        # thread_id = conversation_id → PostgresSaver tự nạp/lưu lịch sử của cuộc
         config = {"configurable": {"thread_id": conversation_id}}
         result = await asyncio.to_thread(
             chatbot.invoke,

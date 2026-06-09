@@ -2,7 +2,7 @@
 
 ## LangGraph Workflow
 - Topology: `START → llm ──[tool_calls?]──→ tools → llm → END` (ReAct)
-- Checkpointer: `_make_checkpointer()` → `SqliteSaver` (dev) hoặc `PostgresSaver+ConnectionPool` (prod). Thread_id = conversation_id. Invoke qua `asyncio.to_thread(chatbot.invoke, input, {"configurable":{"thread_id": conv_id}})`
+- Checkpointer: `PostgresSaver` + `ConnectionPool` (psycopg_pool). Thread_id = conversation_id. Invoke qua `asyncio.to_thread(chatbot.invoke, input, {"configurable":{"thread_id": conv_id}})`
 - `llm_node`: `ChatOpenAI.bind_tools(TOOLS)`. System prompt = BASE + CATALOG skill (name+description chỉ). History-aware: lượt mới thêm HumanMessage; re-entry (last=ToolMessage) không thêm. SystemMessage không lưu vào checkpointer.
 
 ## Tool Registry
@@ -23,13 +23,18 @@
 - Response: `{"response": str, "word_download_url": str|null}`.
 - Sau mỗi lượt: `conversation_store.upsert(conv_id, user_id, query)` (title = câu hỏi đầu).
 
-## Conversation & User Store
-- `conversation_store`: SQLite (`data/conversations.db`) dev / Postgres prod. `list_for_user`, `delete` + `workflow.delete_thread`.
-- `user_store`: Postgres only. bcrypt trực tiếp. `POST /api/auth/login` → `{user_id, username, name, role}` / 401. Admin CRUD tại `GET/POST/PUT/DELETE /api/users`.
+## Database Layer (SQLAlchemy + Alembic)
+- Models: `backend/models/user.py` (User), `backend/models/conversation.py` (Conversation).
+- Engine + session: `core/database.py` — `engine` + `SessionLocal`. URL tự convert `postgresql://` → `postgresql+psycopg://`.
+- Stores dùng context manager: `with SessionLocal() as s:` — không còn raw SQL.
+- Chỉ dùng Postgres. Schema do Alembic quản lý: `alembic upgrade head` trước khi deploy. Migration đầu: `alembic/versions/0001_initial.py`.
+- Thêm cột/bảng mới: `alembic revision --autogenerate -m "mô tả"` → `alembic upgrade head`.
 
 ## CV Processor
-- Luồng chat: upload PDF → `read_cv_file` → JSON → `generate_cv_word_file(template_id="1"|"2")` → `__docx_id__`.
+- Luồng chat: upload PDF → `read_cv_file` → JSON cache → `generate_cv_word_file(template_id, language)` → `__docx_id__`.
+- Cache: `_cv_json_store[file_id]` giữ JSON sau lần đọc đầu → follow-up message dùng lại không cần upload lại PDF.
 - 2 mẫu: `_build_docx_template1` (Bản Lý Lịch Chuyên Môn) / `_build_docx_template2` (Hồ sơ năng lực). Chi tiết field → `cv_tools.py`.
+- `language="vi"|"en"` — tất cả label/đề mục đã có song ngữ trong `_LABELS` dict.
 - `GET /api/cv/download-word/{id}`: `_cv_docx_store[id]` → StreamingResponse `.docx`.
 
 ## LLM Proxy

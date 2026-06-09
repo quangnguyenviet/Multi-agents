@@ -1,7 +1,7 @@
 import io
 import json
 from openai import OpenAI
-from config.settings import settings
+from core.settings import settings
 
 CV_EXTRACTION_PROMPT = """Bạn là chuyên gia phân tích CV/Resume. Hãy đọc kỹ văn bản CV bên dưới và trích xuất thông tin thành JSON có cấu trúc.
 
@@ -110,7 +110,6 @@ def extract_cv_data(pdf_bytes: bytes) -> dict:
 
     raw = response.choices[0].message.content.strip()
 
-    # Strip potential markdown code fences
     if raw.startswith("```"):
         lines = raw.splitlines()
         raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])

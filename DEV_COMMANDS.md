@@ -47,13 +47,6 @@ cd backend
 python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
 ```
 
-- Chạy CLI tương tác (tùy chọn) — mỗi phiên là 1 cuộc hội thoại có nhớ lịch sử:
-
-```bash
-cd backend
-python main.py
-```
-
 ## Chạy frontend (vite / React)
 
 - Cài dependencies và chạy dev server:

@@ -9,7 +9,7 @@ class Settings:
     LLM_API_KEY = os.getenv("LLM_API_KEY")
     LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
     LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
-    
+
     # Skill Configuration — nguồn lưu trữ là MinIO (object storage), mỗi object .md là 1 skill
     MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")  # host:port, KHÔNG kèm scheme
     MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
@@ -18,9 +18,7 @@ class Settings:
     MINIO_BUCKET_SKILLS = os.getenv("MINIO_BUCKET_SKILLS", "skills")
     SKILLS_CACHE_TTL = int(os.getenv("SKILLS_CACHE_TTL", "300"))  # giây — refresh catalog từ MinIO
 
-    # Storage backend (chat history + conversations). sqlite = dev; postgres = production
-    DB_BACKEND = os.getenv("DB_BACKEND", "sqlite")   # sqlite | postgres
-    DATABASE_URL = os.getenv("DATABASE_URL", "")      # postgresql://user:pass@host:5432/db
+    DATABASE_URL = os.getenv("DATABASE_URL", "")      # postgresql+psycopg://user:pass@host:5432/db
     # Blob tạm (PDF/Word): có REDIS_URL = dùng Redis (share + TTL), rỗng = in-memory
     REDIS_URL = os.getenv("REDIS_URL", "")            # redis://host:6379/0
     BLOB_TTL = int(os.getenv("BLOB_TTL", "3600"))     # giây — TTL blob khi dùng Redis

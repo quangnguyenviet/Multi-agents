@@ -1,6 +1,6 @@
-# MinIO client wrapper cho skill storage (mỗi object .md là 1 skill)
+﻿# MinIO client wrapper cho skill storage (mỗi object .md là 1 skill)
 from minio import Minio
-from config.settings import settings
+from core.settings import settings
 
 _client: Minio | None = None
 

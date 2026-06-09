@@ -10,3 +10,6 @@
 - [x] **UI chọn cuộc hội thoại cũ**: `conversation_store`, sidebar list/load/delete, `delete_thread`.
 - [x] **CV Processor — 2 mẫu Word + dịch**: `template_id="1"|"2"`, schema mở rộng (summary_points, team_size, tech_stack). Bỏ HTML + trang CV riêng.
 - [x] **User Management — đăng nhập thật + CRUD**: `user_store` Postgres, bcrypt, `LoginScreen` form, `UserManager` CRUD admin.
+- [x] **CV follow-up fix**: `_cv_json_store` cache JSON sau lần đọc đầu → follow-up message không cần upload lại.
+- [x] **Refactor cấu trúc chuẩn FastAPI**: `config/` → `core/`, `api/models.py` → `api/schemas.py`, `cv_agent.py` → `agents/cv_agent.py`, tạo `services/`.
+- [x] **Migrate sang SQLAlchemy + Alembic**: `models/` (User, Conversation), `core/database.py` (engine + SessionLocal), `alembic/` migrations, xóa raw SQL khỏi stores.

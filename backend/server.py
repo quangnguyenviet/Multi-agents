@@ -18,12 +18,11 @@ from storage import user_store
 
 app = FastAPI(title="Evo Agents Multi-Agent RBAC Studio")
 
-# Khởi tạo bảng users + seed mặc định khi startup
+# Schema được quản lý bởi Alembic. Chỉ seed default users nếu bảng rỗng.
 try:
-    user_store.init_table()
     user_store.seed_default_users()
 except Exception as _e:
-    logging.warning(f"[USER] Khong the init user_store: {_e}")
+    logging.warning(f"[DB] Khong the seed users: {_e}")
 
 # Enable CORS for local development
 app.add_middleware(

@@ -11,10 +11,11 @@ from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from langchain_core.tools import tool
 
-from cv_agent import extract_cv_data
+from services.cv_agent import extract_cv_data
 from storage.blob_store import make_blob_store
 
 _pdf_store = make_blob_store("cv_pdf")       # {file_id: bytes}
+_cv_json_store = make_blob_store("cv_json")  # {file_id: json_str} — cache extracted CV data
 _cv_docx_store = make_blob_store("cv_docx")  # {docx_id: bytes}
 
 
@@ -58,11 +59,17 @@ def read_cv_file(file_id: str) -> str:
     Chỉ dùng khi đã xác định file là CV/hồ sơ xin việc (sau khi đọc bằng read_file_content).
     Kết quả JSON này dùng để truyền vào generate_cv_word_file.
     Sau khi đọc xong, hãy xác định ngôn ngữ chính của CV (vi/en) để truyền đúng vào generate_cv_word_file."""
+    cached = _cv_json_store.get(file_id)
+    if cached:
+        return cached
+
     pdf_bytes = _pdf_store.get(file_id)
     if not pdf_bytes:
-        return f"Lỗi: Không tìm thấy file với ID '{file_id}'."
+        return f"Lỗi: Không tìm thấy file với ID '{file_id}'. Vui lòng upload lại file CV."
     cv_data = extract_cv_data(pdf_bytes)
-    return json.dumps(cv_data, ensure_ascii=False, indent=2)
+    result = json.dumps(cv_data, ensure_ascii=False, indent=2)
+    _cv_json_store[file_id] = result
+    return result
 
 
 # ── Color palette ─────────────────────────────────────────────────────────────

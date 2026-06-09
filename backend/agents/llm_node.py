@@ -1,8 +1,8 @@
-import logging
+﻿import logging
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from config.settings import settings
+from core.settings import settings
 from .workflow_state import MultiAgentState
 from tools.company_tools import (
     get_company_info,

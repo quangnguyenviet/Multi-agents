@@ -33,4 +33,3 @@ class CreateAgentRequest(BaseModel):
     description: str = ""
     welcome: str = ""
     system_prompt: str = ""
-

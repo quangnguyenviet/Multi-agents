@@ -1,4 +1,4 @@
-"""Sync các file skill seed (skills/library/*.md) lên bucket MinIO.
+﻿"""Sync các file skill seed (skills/library/*.md) lên bucket MinIO.
 
 Dùng cho migration lần đầu và mỗi khi sửa seed trong repo.
 Chạy từ thư mục backend/:  python scripts/sync_skills_to_minio.py
@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from minio import Minio
-from config.settings import settings
+from core.settings import settings
 
 SEED_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "skills", "library")
 

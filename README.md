@@ -10,7 +10,6 @@ Dự án đã được tái cấu trúc tách biệt hoàn toàn giữa **Fronte
 demo_langGraph/
 ├── backend/                    # TOÀN BỘ PHẦN BACKEND (FastAPI + LangGraph)
 │   ├── server.py               # API Server khởi chạy FastAPI
-│   ├── main.py                 # CLI tương tác bằng dòng lệnh (Interactive console)
 │   ├── config/                 # Cài đặt hệ thống & RBAC Permission Mapping
 │   ├── data/                   # SQLite database (company.db) và data access layer
 │   ├── api/                    # FastAPI routes và request schemas
