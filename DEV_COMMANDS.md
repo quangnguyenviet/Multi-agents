@@ -5,22 +5,21 @@ Tập hợp các lệnh mẫu để chạy dự án ở môi trường phát tri
 ## Chạy lần đầu (tóm tắt)
 
 ```bash
-# 1. MinIO (cho skill) — tự tạo bucket + upload seed
+# 1. MinIO (cho skill) + Postgres — tự tạo bucket + upload seed
 docker compose up -d
 
 # 2. Backend
 cd backend
 pip install -r requirements.txt
-cp .env.example .env                 # điền LLM_API_KEY
-python -m uvicorn server:app --reload --port 8000
+cp .env.example .env                 # điền LLM_API_KEY, DATABASE_URL
+alembic upgrade head                 # tạo bảng
+python -m uvicorn app.main:app --reload --port 8000
 
 # 3. Frontend (cửa sổ khác)
 cd frontend
 npm install
 npm run dev
 ```
-
-> Dev mặc định: skill = MinIO, lịch sử chat/hội thoại = SQLite (`backend/data/*.db` tự tạo), file tạm = in-memory. Production (Postgres + Redis): xem mục "Storage backend" cuối trang.
 
 ## Chạy backend (FastAPI)
 
@@ -31,20 +30,20 @@ cd backend
 pip install -r requirements.txt
 ```
 
-- Tạo file `.env` (lần đầu) từ mẫu rồi điền `LLM_API_KEY`:
+- Tạo file `.env` (lần đầu) từ mẫu rồi điền `LLM_API_KEY` và `DATABASE_URL`:
 
 ```bash
 cd backend
 cp .env.example .env        # PowerShell: Copy-Item .env.example .env
 ```
 
-> Mặc định `.env` dùng SQLite + in-memory (đủ chạy dev). Skill nạp từ MinIO — xem mục MinIO bên dưới; nếu chưa chạy MinIO thì backend vẫn chạy, chỉ là danh sách skill rỗng.
+> Skill nạp từ MinIO — xem mục MinIO bên dưới; nếu chưa chạy MinIO thì backend vẫn chạy, chỉ là danh sách skill rỗng.
 
 - Chạy server dev (uvicorn, hot-reload):
 
 ```bash
 cd backend
-python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ## Chạy frontend (vite / React)
@@ -68,7 +67,7 @@ Sau khi build, thư mục `frontend/dist` sẽ được server FastAPI phục v�
 
 ## MinIO — lưu trữ Skill (docker-compose)
 
-Skill được lưu trên MinIO (bucket `skills`, mỗi object `.md` là 1 skill). File `docker-compose.yml` ở gốc repo dựng MinIO + tự tạo bucket + upload seed `backend/skills/library/*.md`.
+Skill được lưu trên MinIO (bucket `skills`, mỗi object `.md` là 1 skill). File `docker-compose.yml` ở gốc repo dựng MinIO + tự tạo bucket + upload seed `backend/app/skills/library/*.md`.
 
 - Khởi động MinIO (chạy nền, tự tạo bucket & upload seed):
 
@@ -84,7 +83,7 @@ docker compose up -d
 docker compose logs minio-init
 ```
 
-- Đẩy lại seed sau khi sửa file `.md` trong `backend/skills/library/` (cách 1 — chạy lại init):
+- Đẩy lại seed sau khi sửa file `.md` trong `backend/app/skills/library/` (cách 1 — chạy lại init):
 
 ```bash
 docker compose up minio-init
@@ -117,34 +116,46 @@ docker compose config -q
 
 > Skill refresh theo TTL (`SKILLS_CACHE_TTL`, mặc định 300s): sửa/upload `.md` lên MinIO sẽ có hiệu lực sau TTL, **không cần restart backend**. Nếu MinIO chưa chạy, backend vẫn khởi động bình thường (registry rỗng, tự thử lại sau TTL).
 
-## Storage backend (dev SQLite ↔ production Postgres/Redis)
+## Database — Postgres + Alembic
 
-Mặc định (không set env): **SQLite** cho lịch sử chat + hội thoại, **in-memory** cho file tạm (PDF/Word). Đủ cho dev/1 máy.
-
-Production — bật Postgres + Redis:
+Backend dùng **Postgres** + SQLAlchemy. Schema quản lý qua Alembic.
 
 ```bash
-# 1. Cài driver production
 cd backend
-pip install -r requirements.txt -r requirements-prod.txt
 
-# 2. Chạy Postgres + Redis (profile prod, không tự chạy ở dev)
-docker compose --profile prod up -d        # kèm cả MinIO
+# Lần đầu / sau khi pull code mới
+alembic upgrade head
 
-# 3. Đặt env trong backend/.env rồi chạy server
-#    DB_BACKEND=postgres
-#    DATABASE_URL=postgresql://evo:evo@localhost:5432/evo
-#    REDIS_URL=redis://localhost:6379/0
+# Tạo migration mới sau khi sửa model
+alembic revision --autogenerate -m "mô tả thay đổi"
+
+# Rollback 1 bước
+alembic downgrade -1
+
+# Bảng đã có sẵn (import lần đầu)
+alembic stamp head
 ```
 
-- Backend tự `setup()` bảng checkpoint (Postgres) + bảng `conversations` lúc khởi động.
-- File Word/PDF tạm lưu Redis kèm TTL (`BLOB_TTL`, mặc định 3600s) → share giữa worker, không rò rỉ bộ nhớ.
-- Có thể chạy nhiều worker: `python -m uvicorn server:app --workers 2 --port 8000`.
+Cấu hình trong `backend/.env`:
+
+```
+DATABASE_URL=postgresql://user:pass@localhost:5432/dbname
+REDIS_URL=redis://localhost:6379/0   # để trống = in-memory blob store
+```
+
+File Word/PDF tạm lưu Redis kèm TTL (`BLOB_TTL`, mặc định 3600s) — nếu không set `REDIS_URL` thì dùng in-memory (đủ cho dev/1 worker).
+
+Chạy nhiều worker:
+
+```bash
+cd backend
+python -m uvicorn app.main:app --workers 2 --port 8000
+```
 
 ## Debug backend trong VS Code
 
-- Mở workspace trong VS Code, chọn Run & Debug, chọn cấu hình `Python: Uvicorn (server:app)` rồi nhấn F5.
-- Cấu hình debug đã nằm sẵn tại `.vscode/launch.json` và chạy `uvicorn server:app --reload` từ thư mục `backend`.
+- Mở workspace trong VS Code, chọn Run & Debug, chọn cấu hình `Python: Uvicorn (app.main:app)` rồi nhấn F5.
+- Cấu hình debug đã nằm sẵn tại `.vscode/launch.json` và chạy `uvicorn app.main:app --reload` từ thư mục `backend`.
 
 ## Chạy server thủ công (Windows PowerShell ví dụ)
 
@@ -156,7 +167,7 @@ pip install -r backend/requirements.txt
 
 # chạy uvicorn
 cd backend
-python -m uvicorn server:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ## Ghi chú nhanh
@@ -176,7 +187,7 @@ Codegraph là knowledge graph được index sẵn toàn bộ symbol trong works
 | Trace luồng từ A đến B | "Trace từ `POST /api/chat` đến khi LLM trả response" |
 | Xem source của một hàm | "Cho xem code của `_build_system_prompt`" |
 | Xem nhiều symbol liên quan | "Cho xem các hàm trong `cv_tools.py`" |
-| Xem file trong thư mục | "Liệt kê các file trong `backend/agents/`" |
+| Xem file trong thư mục | "Liệt kê các file trong `backend/app/agents/`" |
 | Kiểm tra index | "Index codegraph có sẵn chưa?" |
 
 ### Công cụ MCP tương ứng (Claude tự chọn)

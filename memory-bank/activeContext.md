@@ -3,30 +3,33 @@
 ## Cấu trúc file quan trọng
 ```
 backend/
-├── core/         settings.py · database.py (SQLAlchemy engine + SessionLocal)
-├── models/       base.py · user.py · conversation.py  ← SQLAlchemy ORM
 ├── alembic/      env.py · versions/0001_initial.py
 ├── alembic.ini
-├── agents/       workflow.py · workflow_state.py · llm_node.py · instances.py
-├── services/     cv_agent.py  ← CV extraction logic
-├── skills/       base.py · loader.py · registry.py · library/(seed .md)
-├── tools/        company_tools.py · cv_tools.py · skill_tools.py
-├── storage/      user_store.py · conversation_store.py · blob_store.py · minio_skills.py · agent_store.py
-├── api/          routes.py · cv_routes.py · schemas.py
-├── data/         database.py (company demo data — SQLite, giữ nguyên)
 ├── scripts/      sync_skills_to_minio.py
-└── server.py
+└── app/
+    ├── main.py
+    ├── core/         config.py (settings: LLM, MinIO, DB, Redis)
+    ├── db/           session.py (SQLAlchemy engine + SessionLocal)
+    │                 models/ base.py · user.py · conversation.py
+    ├── schemas/      auth.py · user.py · chat.py
+    ├── repositories/ user_repo.py · conversation_repo.py · blob_store.py · minio_skills.py
+    ├── services/     cv_service.py  ← CV extraction logic
+    ├── skills/       base.py · loader.py · registry.py · library/(seed .md)
+    ├── tools/        company_tools.py · cv_tools.py · skill_tools.py
+    ├── agents/       workflow.py · workflow_state.py · llm_node.py · instances.py
+    └── api/          router.py
+                      v1/ auth.py · users.py · chat.py · conversations.py · skills.py · tools.py · cv.py
 ```
 
 ## ⚠️ Technical Gotchas
 - `bcrypt>=4.0` không tương thích passlib — dùng `bcrypt.hashpw/checkpw` trực tiếp
 - `POST /api/chat` bắt buộc kèm `conversation_id` (Form field) — thiếu → 422
-- `services/cv_agent.py` phải nằm ở `services/` (không phải `agents/`) — tránh circular import với `tools/cv_tools.py`
 - `_cv_docx_store` không có TTL → memory leak dài hạn (chưa fix)
 - `MINIO_ENDPOINT` = `host:port` (không có scheme)
-- SQLAlchemy + psycopg3: `DATABASE_URL` tự convert `postgresql://` → `postgresql+psycopg://` trong `core/database.py`
+- SQLAlchemy + psycopg3: `DATABASE_URL` tự convert `postgresql://` → `postgresql+psycopg://` trong `app/db/session.py`
 - Alembic quản lý schema. Lần đầu deploy: `alembic upgrade head`. Bảng đã có sẵn: `alembic stamp head`
-- `psycopg_pool` log `PythonFinalizationError` khi thoát `python -c` — không phải lỗi thật, bỏ qua
+- `app/main.py` nằm trong `backend/app/` → `base_dir = dirname(dirname(dirname(__file__)))` để trỏ đúng project root
+- Chạy uvicorn từ `backend/`: `python -m uvicorn app.main:app --reload`
 
 ## CV Processor — fix follow-up message
 - `_cv_json_store = make_blob_store("cv_json")` — cache JSON sau lần `read_cv_file` đầu tiên

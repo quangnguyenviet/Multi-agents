@@ -13,3 +13,5 @@
 - [x] **CV follow-up fix**: `_cv_json_store` cache JSON sau lần đọc đầu → follow-up message không cần upload lại.
 - [x] **Refactor cấu trúc chuẩn FastAPI**: `config/` → `core/`, `api/models.py` → `api/schemas.py`, `cv_agent.py` → `agents/cv_agent.py`, tạo `services/`.
 - [x] **Migrate sang SQLAlchemy + Alembic**: `models/` (User, Conversation), `core/database.py` (engine + SessionLocal), `alembic/` migrations, xóa raw SQL khỏi stores.
+- [x] **Dọn dẹp SQLite + demo tools**: Xóa `data/database.py`, `company.db`, `checkpoints.db`, `conversations.db`, `data/` folder. Xóa `get_company_employee_list`, `get_demo_users_list`, `agent_store`, `agents.json`, `company_info.json`.
+- [x] **Refactor sang chuẩn FastAPI đầy đủ**: Bọc toàn bộ vào `app/` package. Tách `routes.py` thành `api/v1/` (auth, users, chat, conversations, skills, tools, cv). `storage/` → `repositories/`. `core/settings.py` → `core/config.py`. `core/database.py` → `db/session.py`. `models/` → `db/models/`. `api/schemas.py` → `schemas/`. `services/cv_agent.py` → `services/cv_service.py`. Lệnh chạy: `python -m uvicorn app.main:app --reload`.

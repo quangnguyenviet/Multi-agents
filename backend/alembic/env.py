@@ -3,12 +3,12 @@ import sys
 from logging.config import fileConfig
 from alembic import context
 
-# Thêm backend/ vào sys.path để import models và core
+# Thêm backend/ vào sys.path để import app.*
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from core.database import engine
-from models.base import Base
-import models  # đăng ký tất cả models vào metadata
+from app.db.session import engine
+from app.db.models.base import Base
+import app.db.models  # đăng ký tất cả models vào metadata
 
 config = context.config
 if config.config_file_name is not None:
