@@ -14,7 +14,7 @@ logging.basicConfig(
 from app.api.router import api_router
 from app.repositories import user_repo
 
-app = FastAPI(title="Evo Agents Multi-Agent RBAC Studio")
+app = FastAPI(title="Evo Agent")
 
 try:
     user_repo.seed_default_users()

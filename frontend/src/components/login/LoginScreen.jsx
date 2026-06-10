@@ -33,8 +33,8 @@ function LoginScreen({ handleLogin }) {
       </div>
       <div className="login-card">
         <div className="login-logo"><i className="fa-solid fa-brain"></i></div>
-        <h1 className="login-title">Evo Agents Portal</h1>
-        <p className="login-subtitle">Hệ thống Multi-Agent & Kích hoạt Kỹ năng động</p>
+        <h1 className="login-title">Evo Agent</h1>
+        <p className="login-subtitle">Hệ thống Kích hoạt Kỹ năng động</p>
 
         <form className="login-form" onSubmit={onSubmit}>
           <div className="form-group">

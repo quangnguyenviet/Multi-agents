@@ -1,3 +1,3 @@
-from .workflow_state import MultiAgentState
+from .workflow_state import AgentState
 from .instances import skill_registry
-from .workflow import build_multi_agent_system, chatbot
+from .workflow import build_agent, chatbot

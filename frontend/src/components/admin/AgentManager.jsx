@@ -16,7 +16,7 @@ function AgentManager({
     <div className={`tab-content ${activeTab === 'tab-agents' ? 'active' : ''}`}>
       <div className="panel-header">
         <div className="panel-title-wrapper">
-          <h2 className="panel-title">Thiết lập Đồ thị Multi-Agent (LangGraph)</h2>
+          <h2 className="panel-title">Thiết lập Agent (LangGraph)</h2>
           <p className="panel-desc">Cấu hình các nút Agent độc lập, tùy biến AI Instructions (System Prompt) và kết nối tức thì.</p>
         </div>
         <button className="panel-btn-primary" onClick={() => setAgentModalOpen(true)}>

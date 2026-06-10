@@ -95,7 +95,7 @@ function App() {
 
   /* SEED INITIAL LOGS + fetch data khi reload với user đã đăng nhập */
   useEffect(() => {
-    addLog("Multi-Agent LangGraph runtime compiled successfully.", "info");
+    addLog("LangGraph agent runtime compiled successfully.", "info");
     if (currentUser) {
       fetchConversations(currentUser.id);
       fetch("/api/tools").then(r => r.ok ? r.json() : []).then(d => { if (d.length) setTools(d); }).catch(() => {});
@@ -240,7 +240,7 @@ function App() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setChatMessages(prev => [...prev, userMsg]);
-    addLog(`Sending query to LangGraph Multi-Agent Engine: "${text}"`, "info");
+    addLog(`Sending query to LangGraph agent: "${text}"`, "info");
     setIsTyping(true);
 
     try {

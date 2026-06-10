@@ -5,12 +5,12 @@ from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 
 from app.core.config import settings
-from .workflow_state import MultiAgentState
+from .workflow_state import AgentState
 from .llm_node import llm_node, TOOLS
 
 
-def build_multi_agent_system(checkpointer=None):
-    workflow = StateGraph(MultiAgentState)
+def build_agent(checkpointer=None):
+    workflow = StateGraph(AgentState)
     workflow.add_node("llm", llm_node)
     workflow.add_node("tools", ToolNode(TOOLS))
     workflow.set_entry_point("llm")
@@ -32,7 +32,7 @@ def _make_checkpointer():
 
 
 _checkpointer = _make_checkpointer()
-chatbot = build_multi_agent_system(_checkpointer)
+chatbot = build_agent(_checkpointer)
 
 
 def delete_thread(thread_id: str):

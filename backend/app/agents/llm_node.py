@@ -3,7 +3,7 @@ import logging
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from app.core.config import settings
-from .workflow_state import MultiAgentState
+from .workflow_state import AgentState
 from app.tools.company_tools import get_current_datetime, calculate
 from app.tools.cv_tools import read_file_content, read_cv_file, generate_cv_word_file
 from app.tools.skill_tools import load_skill
@@ -11,7 +11,7 @@ from app.tools.skill_tools import load_skill
 logger = logging.getLogger(__name__)
 
 BASE_SYSTEM_PROMPT = (
-    "Bạn là trợ lý AI nội bộ thân thiện. "
+    "Bạn là trợ lý AI"
     "Hãy trả lời câu hỏi của người dùng một cách chính xác, rõ ràng và hữu ích."
 )
 
@@ -25,7 +25,7 @@ llm_with_tools = ChatOpenAI(
     model=settings.LLM_MODEL,
     api_key=settings.LLM_API_KEY,
     base_url=settings.LLM_BASE_URL,
-    temperature=0.7,
+    temperature=0.3,
 ).bind_tools(TOOLS)
 
 
@@ -51,7 +51,7 @@ def _build_system_prompt() -> str:
     return f"{BASE_SYSTEM_PROMPT}\n\n{instruction}"
 
 
-def llm_node(state: MultiAgentState) -> dict:
+def llm_node(state: AgentState) -> dict:
     existing_messages = list(state.get("messages") or [])
     is_reentry = bool(existing_messages) and isinstance(existing_messages[-1], ToolMessage)
 
