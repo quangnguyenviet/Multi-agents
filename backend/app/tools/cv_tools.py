@@ -13,41 +13,10 @@ from langchain_core.tools import tool
 
 from app.services.cv_service import extract_cv_data
 from app.repositories.blob_store import make_blob_store
+from app.tools.file_tools import _upload_store
 
-_pdf_store = make_blob_store("cv_pdf")
 _cv_json_store = make_blob_store("cv_json")
 _cv_docx_store = make_blob_store("cv_docx")
-
-
-@tool
-def read_file_content(file_id: str) -> str:
-    """Đọc và trả về nội dung văn bản thô từ file đã được người dùng upload.
-    Dùng tool này TRƯỚC để hiểu file là gì (CV, báo cáo, hợp đồng, v.v.),
-    sau đó quyết định xử lý phù hợp. Hỗ trợ: PDF, TXT và các file văn bản."""
-    file_bytes = _pdf_store.get(file_id)
-    if not file_bytes:
-        return f"Lỗi: Không tìm thấy file với ID '{file_id}'."
-
-    try:
-        import pdfplumber
-        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            pages = [p.extract_text() for p in pdf.pages if p.extract_text()]
-        text = "\n".join(pages).strip()
-        if text:
-            return text[:8000]
-    except Exception:
-        pass
-
-    for enc in ("utf-8", "utf-16", "latin-1"):
-        try:
-            return file_bytes.decode(enc)[:8000]
-        except Exception:
-            continue
-
-    return (
-        "Không thể đọc nội dung file. "
-        "File có thể là ảnh scan, file nhị phân, hoặc định dạng không được hỗ trợ (xlsx, docx, v.v.)."
-    )
 
 
 @tool
@@ -61,7 +30,7 @@ def read_cv_file(file_id: str) -> str:
     if cached:
         return cached
 
-    pdf_bytes = _pdf_store.get(file_id)
+    pdf_bytes = _upload_store.get(file_id)
     if not pdf_bytes:
         return f"Lỗi: Không tìm thấy file với ID '{file_id}'. Vui lòng upload lại file CV."
     cv_data = extract_cv_data(pdf_bytes)
@@ -522,4 +491,4 @@ def generate_cv_word_file(cv_json: str, template_id: str = "1", language: str = 
     doc.save(buf)
     docx_id = uuid.uuid4().hex[:8]
     _cv_docx_store[docx_id] = buf.getvalue()
-    return f"File Word đã tạo thành công. __docx_id__: {docx_id}"
+    return f"File Word đã tạo thành công. __artifact__:docx:{docx_id}"

@@ -5,7 +5,8 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from app.core.config import settings
 from .workflow_state import AgentState
 from app.tools.company_tools import get_current_datetime, calculate
-from app.tools.cv_tools import read_file_content, read_cv_file, generate_cv_word_file
+from app.tools.file_tools import read_file_content
+from app.tools.cv_tools import read_cv_file, generate_cv_word_file
 from app.tools.skill_tools import load_skill
 
 logger = logging.getLogger(__name__)

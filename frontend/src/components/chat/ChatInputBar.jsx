@@ -44,14 +44,14 @@ function ChatInputBar({ onSendMessage }) {
       <div className="chat-input-box">
         <input
           type="file"
-          accept=".pdf"
+          accept=".pdf,.txt,.docx"
           ref={fileInputRef}
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />
         <button
           className="chat-attach-btn"
-          title="Đính kèm PDF"
+          title="Đính kèm file"
           onClick={() => fileInputRef.current.click()}
         >
           <i className="fa-solid fa-paperclip"></i>

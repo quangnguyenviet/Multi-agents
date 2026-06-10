@@ -11,12 +11,12 @@ backend/app/
 ├── db/session.py           # SQLAlchemy engine + SessionLocal
 │   models/                 # user.py · conversation.py
 ├── schemas/                # auth · user · chat
-├── repositories/           # user_repo · conversation_repo · blob_store · minio_skills
+├── repositories/           # user_repo · conversation_repo · blob_store · minio_skills · artifact_store
 ├── services/cv_service.py
 ├── skills/                 # base · loader · registry · library/(seed .md)
-├── tools/                  # company_tools · cv_tools · skill_tools
+├── tools/                  # company_tools · file_tools · cv_tools · skill_tools
 ├── agents/                 # workflow · llm_node · instances · workflow_state
-└── api/v1/                 # auth · users · chat · conversations · skills · tools · cv
+└── api/v1/                 # auth · users · chat · conversations · skills · tools · artifacts
 ```
 
 ## Dev Setup
@@ -44,7 +44,18 @@ cd frontend; npm run dev   # port 3000, proxies /api → 8000
 - **LangGraph**: `START → llm →[tool_calls?]→ tools → llm → END`. Thread_id = conversation_id.
 - **Skill System**: Skills are `.md` files in MinIO bucket `skills`. TTL cache 300s. LLM sees only the CATALOG (name + description), calls `load_skill(name)` on-demand for the full body.
 - **Tool Registry**: `@tool` functions in `tools/`. Adding a tool requires code change + restart — no UI CRUD.
-- **CV Processor**: PDF → JSON cache (`_cv_json_store`) → Word (.docx). 2 templates, bilingual (vi/en). `_cv_docx_store` has no TTL yet.
+- **File Upload**: Uploaded bytes stored in Redis via `_upload_store` (prefix `uploaded_files`, TTL = `BLOB_TTL`). Cleaned up immediately after the chat turn. Accepts `.pdf`, `.txt`, `.docx`. File hint appended to query as `[Attached file: '<name>', file_id=<id>]` — LLM decides how to handle it via skill catalog.
+- **Artifact System**: Tools return downloadable artifacts using the marker `__artifact__:<type>:<id>` in their result string. `chat.py` parses this and returns `artifacts: [{type, url}]` in the response. Served at `GET /api/artifacts/download/{type}/{id}`. Register new artifact types in `repositories/artifact_store.py` and `api/v1/artifacts.py`.
+- **CV Processor**: PDF → JSON cache (`_cv_json_store`) → Word (.docx). 2 templates, bilingual (vi/en). Artifact stored under `_cv_docx_store` (prefix `cv_docx`).
+
+## Adding a New Domain Tool
+
+1. Create `tools/<domain>_tools.py` with `@tool` functions; artifacts use `__artifact__:<type>:<id>` marker
+2. Add artifact store entry to `repositories/artifact_store.py` (`_stores["<type>"] = make_blob_store("<prefix>")`)
+3. Add media type/extension to `api/v1/artifacts.py`
+4. Register the tool in `TOOLS` list in `agents/llm_node.py`
+5. Add label to `ARTIFACT_LABELS` map in `frontend/src/components/chat/MessageItem.jsx`
+6. Write a skill `.md` file and upload it to MinIO
 
 ## Pending Tasks
 

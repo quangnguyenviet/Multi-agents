@@ -261,7 +261,7 @@ function App() {
         agentName: "AI Assistant",
         avatarAbbr: "AI",
         text: data.response,
-        wordDownloadUrl: data.word_download_url || null,
+        artifacts: data.artifacts || [],
         skillTag: data.skill_used || "LangGraph Engine",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
