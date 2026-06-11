@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { apiFetch, apiRequestJson, readJsonResponse } from '../../api';
 
 const ROLES = ['admin', 'user'];
 
@@ -17,12 +18,11 @@ function UserManager({ currentUser, users, onRefresh }) {
     }
     setSaving(true); setError('');
     try {
-      const res = await fetch(`/api/users?admin_id=${currentUser.id}`, {
+      const { response: res, data } = await apiRequestJson(`/api/users?admin_id=${currentUser.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const data = await res.json();
       if (!res.ok) { setError(data.detail || 'Tạo user thất bại'); return; }
       setForm({ username: '', password: '', name: '', role: 'user' });
       onRefresh();
@@ -42,12 +42,12 @@ function UserManager({ currentUser, users, onRefresh }) {
     if (editTarget.role)     body.role = editTarget.role;
     if (editTarget.password) body.password = editTarget.password;
     try {
-      const res = await fetch(`/api/users/${editTarget.id}?admin_id=${currentUser.id}`, {
+      const res = await apiFetch(`/api/users/${editTarget.id}?admin_id=${currentUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) { const d = await res.json(); setError(d.detail || 'Cập nhật thất bại'); return; }
+      if (!res.ok) { const d = await readJsonResponse(res); setError(d.detail || 'Cập nhật thất bại'); return; }
       setEditTarget(null);
       onRefresh();
     } catch (err) {
@@ -61,8 +61,8 @@ function UserManager({ currentUser, users, onRefresh }) {
   const handleDelete = async (uid, username) => {
     if (!window.confirm(`Xóa user "${username}"?`)) return;
     try {
-      const res = await fetch(`/api/users/${uid}?admin_id=${currentUser.id}`, { method: 'DELETE' });
-      if (!res.ok) { const d = await res.json(); alert(d.detail || 'Xóa thất bại'); return; }
+      const res = await apiFetch(`/api/users/${uid}?admin_id=${currentUser.id}`, { method: 'DELETE' });
+      if (!res.ok) { const d = await readJsonResponse(res); alert(d.detail || 'Xóa thất bại'); return; }
       onRefresh();
     } catch (err) {
       alert(err.message);

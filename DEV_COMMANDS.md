@@ -46,6 +46,13 @@ cd backend
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+Nếu truy cập frontend từ máy khác trong LAN, chạy backend bind ra tất cả interface:
+
+```bash
+cd backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
 ## Chạy frontend (vite / React)
 
 - Cài dependencies và chạy dev server:
@@ -64,6 +71,41 @@ npm run build
 ```
 
 Sau khi build, thư mục `frontend/dist` sẽ được server FastAPI phục vụ tự động nếu tồn tại.
+
+### Chạy frontend build bằng static server trên port 5173
+
+Vite proxy chỉ hoạt động với `npm run dev`. Khi chạy static server như `serve -s dist`, request `/api/...` sẽ bị static server trả về `index.html` nếu frontend gọi API bằng relative URL. App hiện tự nhận biết khi chạy trên port `5173` và gọi API sang cùng host port `8000`.
+
+Ví dụ:
+
+```text
+http://10.100.13.16:5173  -> frontend
+http://10.100.13.16:8000  -> backend API
+```
+
+Lệnh chạy:
+
+```bash
+# Terminal 1
+cd backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Terminal 2
+cd frontend
+npm run build
+npx serve -s dist --listen 5173
+```
+
+Nếu backend không nằm ở cùng host hoặc không dùng port `8000`, set `VITE_API_BASE_URL` trước khi build:
+
+```powershell
+cd frontend
+$env:VITE_API_BASE_URL="http://10.100.13.16:8000"
+npm run build
+npx serve -s dist --listen 5173
+```
+
+Triệu chứng cấu hình sai: login báo `Expected JSON ... got 200 OK with text/html` và response bắt đầu bằng `<!doctype html>`. Nghĩa là `/api/...` đang bị frontend static server xử lý thay vì đi tới FastAPI.
 
 ## MinIO — lưu trữ Skill (docker-compose)
 

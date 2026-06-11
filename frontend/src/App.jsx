@@ -11,7 +11,23 @@ import ConversationsPage from './components/chat/ConversationsPage';
 import SkillManager from './components/admin/SkillManager';
 import ToolRegistry from './components/admin/ToolRegistry';
 import UserManager from './components/admin/UserManager';
+import { apiFetch, apiRequestJson } from './api';
 
+function createConversationId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  if (globalThis.crypto?.getRandomValues) {
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map(byte => byte.toString(16).padStart(2, '0'));
+    return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`;
+  }
+
+  return `conv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function ChatRoute({ currentUser, chatMessages, setChatMessages, conversationId, setConversationId, isTyping, handleSendMessage, addLog }) {
   const { convId } = useParams();
@@ -23,8 +39,8 @@ function ChatRoute({ currentUser, chatMessages, setChatMessages, conversationId,
     setConversationId(convId);
     setChatMessages([]);
 
-    fetch(`/api/conversations/${convId}/messages?user_id=${currentUser.id}`)
-      .then(res => res.ok ? res.json() : Promise.reject(new Error('Không nạp được hội thoại')))
+    apiRequestJson(`/api/conversations/${convId}/messages?user_id=${currentUser.id}`)
+      .then(({ response, data }) => response.ok ? data : Promise.reject(new Error(data?.detail || 'Không nạp được hội thoại')))
       .then(data => {
         const msgs = (data.messages || []).map(m => ({
           role: m.role,
@@ -65,7 +81,7 @@ function App() {
   /* CHAT STATES */
   const [chatMessages, setChatMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [conversationId, setConversationId] = useState(() => crypto.randomUUID());
+  const [conversationId, setConversationId] = useState(() => createConversationId());
   const [conversations, setConversations] = useState([]);
 
   /* LIVE SYSTEM LOGS */
@@ -98,8 +114,8 @@ function App() {
     addLog("LangGraph agent runtime compiled successfully.", "info");
     if (currentUser) {
       fetchConversations(currentUser.id);
-      fetch("/api/tools").then(r => r.ok ? r.json() : []).then(d => { if (d.length) setTools(d); }).catch(() => {});
-      fetch("/api/skills").then(r => r.ok ? r.json() : []).then(d => { if (d.length) setSkills(d); }).catch(() => {});
+      apiRequestJson("/api/tools").then(({ response, data }) => { if (response.ok && data.length) setTools(data); }).catch(() => {});
+      apiRequestJson("/api/skills").then(({ response, data }) => { if (response.ok && data.length) setSkills(data); }).catch(() => {});
       if (currentUser.role === "admin") fetchUsers(currentUser.id);
     }
   }, []);
@@ -108,14 +124,13 @@ function App() {
   const handleLogin = async (username, password) => {
     try {
       addLog(`Authenticating: ${username}...`, "info");
-      setConversationId(crypto.randomUUID());
+      setConversationId(createConversationId());
 
-      const res = await fetch("/api/auth/login", {
+      const { response: res, data } = await apiRequestJson("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      const data = await res.json();
       if (!res.ok) return data.detail || "Sai tên đăng nhập hoặc mật khẩu";
 
       const user = {
@@ -130,14 +145,14 @@ function App() {
 
       // Fetch tools
       try {
-        const toolsRes = await fetch("/api/tools");
-        if (toolsRes.ok) { const d = await toolsRes.json(); setTools(d); addLog(`Loaded ${d.length} tools.`, "success"); }
+        const { response: toolsRes, data: d } = await apiRequestJson("/api/tools");
+        if (toolsRes.ok) { setTools(d); addLog(`Loaded ${d.length} tools.`, "success"); }
       } catch (e) { addLog(`Tool fetch failed: ${e.message}`, "warning"); }
 
       // Fetch skills
       try {
-        const skillsRes = await fetch("/api/skills");
-        if (skillsRes.ok) { const d = await skillsRes.json(); setSkills(d); addLog(`Loaded ${d.length} skills.`, "success"); }
+        const { response: skillsRes, data: d } = await apiRequestJson("/api/skills");
+        if (skillsRes.ok) { setSkills(d); addLog(`Loaded ${d.length} skills.`, "success"); }
       } catch (e) { addLog(`Skill fetch failed: ${e.message}`, "warning"); }
 
       // Fetch users nếu admin
@@ -156,8 +171,8 @@ function App() {
   /* FETCH danh sách users (admin) */
   const fetchUsers = async (adminId) => {
     try {
-      const res = await fetch(`/api/users?user_id=${adminId}`);
-      if (res.ok) setUsers(await res.json());
+      const { response: res, data } = await apiRequestJson(`/api/users?user_id=${adminId}`);
+      if (res.ok) setUsers(data);
     } catch (err) {
       addLog(`User list fetch failed: ${err.message}`, "warning");
     }
@@ -168,7 +183,7 @@ function App() {
     localStorage.removeItem('currentUser');
     setCurrentUser(null);
     setChatMessages([]);
-    setConversationId(crypto.randomUUID());
+    setConversationId(createConversationId());
     setConversations([]);
     setSkills([]);
     setTools([]);
@@ -179,7 +194,7 @@ function App() {
 
   /* NEW CHAT — bắt đầu cuộc trò chuyện mới (reset lịch sử backend qua conversation_id mới) */
   const handleNewChat = () => {
-    const newId = crypto.randomUUID();
+    const newId = createConversationId();
     setChatMessages([]);
     setConversationId(newId);
     addLog(`Started a new conversation`, "info");
@@ -187,7 +202,7 @@ function App() {
   };
 
   const handleStartChat = (initialText) => {
-    const newId = crypto.randomUUID();
+    const newId = createConversationId();
     setChatMessages([]);
     setConversationId(newId);
     navigate('/chat/' + newId);
@@ -197,8 +212,8 @@ function App() {
   /* FETCH danh sách cuộc hội thoại của user */
   const fetchConversations = async (userId) => {
     try {
-      const res = await fetch(`/api/conversations?user_id=${userId}`);
-      if (res.ok) setConversations(await res.json());
+      const { response: res, data } = await apiRequestJson(`/api/conversations?user_id=${userId}`);
+      if (res.ok) setConversations(data);
     } catch (err) {
       addLog(`Conversation list fetch failed: ${err.message}`, "warning");
     }
@@ -213,12 +228,12 @@ function App() {
   const deleteConversation = async (id) => {
     if (!window.confirm("Xóa cuộc trò chuyện này khỏi hệ thống?")) return;
     try {
-      const res = await fetch(`/api/conversations/${id}?user_id=${currentUser.id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/conversations/${id}?user_id=${currentUser.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Xóa thất bại");
       setConversations(prev => prev.filter(c => c.id !== id));
       if (id === conversationId) {
         setChatMessages([]);
-        setConversationId(crypto.randomUUID());
+        setConversationId(createConversationId());
         navigate('/chat');
       }
       triggerToast("Đã xóa cuộc trò chuyện!");
@@ -251,9 +266,7 @@ function App() {
       if (file) formData.append('file', file);
 
       // Không set Content-Type — browser tự set multipart boundary
-      const res = await fetch('/api/chat', { method: 'POST', body: formData });
-
-      const data = await res.json();
+      const { response: res, data } = await apiRequestJson('/api/chat', { method: 'POST', body: formData });
       if (!res.ok) throw new Error(data.detail || "Chất lượng kết nối kém!");
 
       const botMsg = {

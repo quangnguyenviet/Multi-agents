@@ -1,4 +1,5 @@
 import React from 'react';
+import { apiUrl } from '../../api';
 
 const applyInline = (text) =>
   text
@@ -78,7 +79,7 @@ function MessageItem({ msg }) {
             <span style={{ flex: 1 }}>
               {({ docx: 'File Word đã sẵn sàng' })[artifact.type] || 'File đã sẵn sàng'}
             </span>
-            <a href={artifact.url} download className="word-download-btn">
+            <a href={apiUrl(artifact.url)} download className="word-download-btn">
               <i className="fa-solid fa-download" style={{ marginRight: '6px' }}></i>Tải về (.{artifact.type})
             </a>
           </div>
