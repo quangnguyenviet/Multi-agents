@@ -24,8 +24,8 @@ def read_cv_file(file_id: str) -> str:
     """Trích xuất thông tin CV có cấu trúc từ file PDF đã upload, trả về JSON gồm:
     personal_info, summary, experience, education, skills, languages, certifications.
     Chỉ dùng khi đã xác định file là CV/hồ sơ xin việc (sau khi đọc bằng read_file_content).
-    Kết quả JSON này dùng để truyền vào generate_cv_word_file.
-    Sau khi đọc xong, hãy xác định ngôn ngữ chính của CV (vi/en) để truyền đúng vào generate_cv_word_file."""
+    Sau khi đọc xong, hãy nhớ file_id để dùng lại với generate_cv_word_file.
+    Người dùng có thể yêu cầu đổi mẫu hoặc ngôn ngữ nhiều lần — chỉ cần truyền lại file_id."""
     cached = _cv_json_store.get(file_id)
     if cached:
         return cached
@@ -40,9 +40,11 @@ def read_cv_file(file_id: str) -> str:
 
 
 # ── Color palette ─────────────────────────────────────────────────────────────
-_C_NAVY   = RGBColor(0x0f, 0x34, 0x60)
-_C_ACCENT = RGBColor(0x5c, 0x6b, 0xc0)
-_C_DARK   = RGBColor(0x1a, 0x1a, 0x2e)
+_C_NAVY      = RGBColor(0x0f, 0x34, 0x60)
+_C_ACCENT    = RGBColor(0x5c, 0x6b, 0xc0)
+_C_DARK      = RGBColor(0x1a, 0x1a, 0x2e)
+_C_WHITE     = RGBColor(0xFF, 0xFF, 0xFF)
+_C_HEADER_BG = "2C3E50"
 
 
 def _lv(para, label: str, value: str):
@@ -64,6 +66,15 @@ def _para_bottom_border(para):
     bot.set(qn("w:color"), "AAAAAA")
     pBdr.append(bot)
     pPr.append(pBdr)
+
+
+def _set_cell_bg(cell, hex_color: str):
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), hex_color)
+    tcPr.append(shd)
 
 
 def _strip_accents(s: str) -> str:
@@ -310,33 +321,50 @@ def _build_docx_template1(cv_data: dict, labels: dict) -> Document:
 
 
 _W2_LABEL, _W2_VALUE = Cm(4.5), Cm(12.5)
+_W2_SECTION        = Cm(17.0)
+_W2_LANG_NAME      = Cm(5.0)
+_W2_LANG_LEVEL     = Cm(4.0)
 
 
-def _t2_heading(doc: Document, text: str):
-    p = doc.add_paragraph()
-    r = p.add_run(text)
-    r.bold = True; r.font.size = Pt(12); r.font.color.rgb = _C_NAVY
-    _para_bottom_border(p)
-    return p
+def _t2_section_heading(doc: Document, text: str):
+    tbl = doc.add_table(rows=1, cols=1)
+    tbl.style = "Table Grid"
+    cell = tbl.rows[0].cells[0]
+    cell.width = _W2_SECTION
+    _set_cell_bg(cell, _C_HEADER_BG)
+    r = cell.paragraphs[0].add_run(text)
+    r.bold = True; r.font.size = Pt(11); r.font.color.rgb = _C_WHITE
+    return tbl
 
 
-def _t2_kv(tbl, label: str, value: str):
+def _t2_kv(tbl, label: str, value: str, header: bool = False, bold_label: bool = True, size: int = 10):
     row = tbl.add_row()
     c0, c1 = row.cells
     c0.width = _W2_LABEL; c1.width = _W2_VALUE
     r = c0.paragraphs[0].add_run(label)
-    r.bold = True; r.font.size = Pt(10); r.font.color.rgb = _C_NAVY
+    r.bold = bold_label; r.font.size = Pt(size)
+    if header:
+        r.font.color.rgb = _C_WHITE
+        _set_cell_bg(c0, _C_HEADER_BG)
+    else:
+        r.font.color.rgb = _C_NAVY
     vr = c1.paragraphs[0].add_run(value or "")
-    vr.font.size = Pt(10); vr.font.color.rgb = _C_DARK
+    vr.font.size = Pt(size); vr.font.color.rgb = _C_DARK
     return row
 
 
-def _t2_kv_multiline(tbl, label: str, lines: list):
+def _t2_kv_multiline(tbl, label: str, lines: list, header: bool = False):
     row = tbl.add_row()
     c0, c1 = row.cells
     c0.width = _W2_LABEL; c1.width = _W2_VALUE
     r = c0.paragraphs[0].add_run(label)
-    r.bold = True; r.font.size = Pt(10); r.font.color.rgb = _C_NAVY
+    r.bold = False; r.font.size = Pt(10)
+    if header:
+        r.font.color.rgb = _C_WHITE
+        _set_cell_bg(c0, _C_HEADER_BG)
+        c0.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    else:
+        r.font.color.rgb = _C_NAVY
     first = True
     for ln in lines:
         p = c1.paragraphs[0] if first else c1.add_paragraph()
@@ -346,7 +374,7 @@ def _t2_kv_multiline(tbl, label: str, lines: list):
     return row
 
 
-def _t2_language_row(tbl, lang: dict, levels: list):
+def _t2_language_row(tbl, lang: dict):
     name = lang.get("language") or ""
     level = _strip_accents(lang.get("level") or "")
 
@@ -360,10 +388,15 @@ def _t2_language_row(tbl, lang: dict, levels: list):
 
     row = tbl.add_row()
     cells = row.cells
-    cells[0].paragraphs[0].add_run(name).font.size = Pt(10)
-    for i, lv in enumerate(levels):
-        txt = lv + (" (x)" if i == idx else "")
-        cells[i + 1].paragraphs[0].add_run(txt).font.size = Pt(9.5)
+    cells[0].width = _W2_LANG_NAME
+    r0 = cells[0].paragraphs[0].add_run(name)
+    r0.font.size = Pt(10); r0.font.color.rgb = _C_DARK
+    for i in range(3):
+        cells[i + 1].width = _W2_LANG_LEVEL
+        txt = "x" if i == idx else ""
+        r = cells[i + 1].paragraphs[0].add_run(txt)
+        r.font.size = Pt(10); r.font.color.rgb = _C_DARK
+        cells[i + 1].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
     if idx is None and lang.get("level"):
         cells[1].paragraphs[0].add_run(f"  [{lang['level']}]").font.size = Pt(9)
     return row
@@ -388,42 +421,65 @@ def _build_docx_template2(cv_data: dict, labels: dict) -> Document:
 
     position = (experience[0].get("position") or "") if experience else ""
 
+    # 1. Personal info
     info = doc.add_table(rows=0, cols=2)
     info.style = "Table Grid"
-    _t2_kv(info, labels["t2_fullname"], pi.get("full_name") or "")
-    _t2_kv(info, labels["t2_position"], position)
+    _t2_kv(info, labels["t2_fullname"], pi.get("full_name") or "", header=True, bold_label=True, size=11)
+    _t2_kv(info, labels["t2_position"], position, header=True, bold_label=True, size=11)
     doc.add_paragraph()
 
-    points = summary_points or [s.strip() for s in summary.splitlines() if s.strip()]
-    if points:
-        _t2_heading(doc, labels["t2_overview"])
-        for pt in points:
-            bp = doc.add_paragraph(f"•  {pt}")
-            bp.paragraph_format.left_indent = Inches(0.1)
-            for r in bp.runs:
-                r.font.size = Pt(10); r.font.color.rgb = _C_DARK
+    # 2. Summary / Overview
+    text = summary.strip() or " ".join(s.strip() for s in summary_points if s.strip())
+    if text:
+        _t2_section_heading(doc, f"> {labels['t2_overview']}")
+        p = doc.add_paragraph()
+        r = p.add_run(text)
+        r.font.size = Pt(10); r.font.color.rgb = _C_DARK
+        doc.add_paragraph()
 
+    # 3. Education
     if education:
-        _t2_heading(doc, labels["t2_education"])
+        _t2_section_heading(doc, f"> {labels['t2_education']}")
         edu_tbl = doc.add_table(rows=0, cols=2)
         edu_tbl.style = "Table Grid"
         for edu in education:
-            period = _date_range(edu.get("start_date"), edu.get("end_date"))
-            lines = []
-            major = " ".join(x for x in [edu.get("field"), edu.get("degree")] if x)
+            period = _date_range(edu.get("start_date"), edu.get("end_date")) or "—"
+            major  = " ".join(x for x in [edu.get("field"), edu.get("degree")] if x)
+            institution = edu.get("institution") or ""
+            erow = edu_tbl.add_row()
+            c0, c1 = erow.cells
+            c0.width = _W2_LABEL; c1.width = _W2_VALUE
+            _set_cell_bg(c0, _C_HEADER_BG)
+            rp = c0.paragraphs[0].add_run(period)
+            rp.font.size = Pt(10); rp.font.color.rgb = _C_WHITE
+            c0.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
             if major:
-                lines.append(major)
-            if edu.get("institution"):
-                lines.append(edu["institution"])
-            _t2_kv_multiline(edu_tbl, period or "—", lines or [""])
+                rm = c1.paragraphs[0].add_run(major)
+                rm.font.size = Pt(10); rm.font.color.rgb = _C_DARK
+            if institution:
+                inst_p = c1.add_paragraph() if major else c1.paragraphs[0]
+                ri = inst_p.add_run(institution)
+                ri.bold = True; ri.font.size = Pt(10); ri.font.color.rgb = _C_DARK
+        doc.add_paragraph()
 
+    # 4. Languages
     if languages:
-        _t2_heading(doc, labels["t2_languages"])
+        _t2_section_heading(doc, f"> {labels['t2_languages']}")
         lang_tbl = doc.add_table(rows=0, cols=4)
         lang_tbl.style = "Table Grid"
+        hdr_row = lang_tbl.add_row()
+        for j, htext in enumerate([labels["t2_languages"], *labels["t2_lang_levels"]]):
+            hc = hdr_row.cells[j]
+            hc.width = _W2_LANG_NAME if j == 0 else _W2_LANG_LEVEL
+            _set_cell_bg(hc, _C_HEADER_BG)
+            hr = hc.paragraphs[0].add_run(htext)
+            hr.bold = True; hr.font.size = Pt(10); hr.font.color.rgb = _C_WHITE
+            hc.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
         for lang in languages:
-            _t2_language_row(lang_tbl, lang, labels["t2_lang_levels"])
+            _t2_language_row(lang_tbl, lang)
+        doc.add_paragraph()
 
+    # 5. Technologies
     groups = [
         (labels["t2_os"],      tech_stack.get("operating_systems")),
         (labels["t2_core"],    tech_stack.get("core") or skills.get("technical")),
@@ -432,41 +488,59 @@ def _build_docx_template2(cv_data: dict, labels: dict) -> Document:
         (labels["t2_methods"], tech_stack.get("methodologies")),
     ]
     if any(vals for _, vals in groups):
-        _t2_heading(doc, labels["t2_tech"])
+        _t2_section_heading(doc, f"> {labels['t2_tech']}")
         tech_tbl = doc.add_table(rows=0, cols=2)
         tech_tbl.style = "Table Grid"
-        for label, vals in groups:
+        for lbl, vals in groups:
             if vals:
-                _t2_kv(tech_tbl, label, ", ".join(vals))
+                trow = tech_tbl.add_row()
+                c0, c1 = trow.cells
+                c0.width = _W2_LABEL; c1.width = _W2_VALUE
+                _set_cell_bg(c0, _C_HEADER_BG)
+                lr = c0.paragraphs[0].add_run(lbl)
+                lr.bold = False; lr.font.size = Pt(10); lr.font.color.rgb = _C_WHITE
+                first = True
+                for val in vals:
+                    tp = c1.paragraphs[0] if first else c1.add_paragraph()
+                    tp.add_run(f"- {val}").font.size = Pt(10)
+                    for tr in tp.runs:
+                        tr.font.color.rgb = _C_DARK
+                    first = False
+        doc.add_paragraph()
 
+    # 6. Work experience
     if experience:
-        _t2_heading(doc, labels["t2_experience"].format(n=len(experience)))
+        _t2_section_heading(doc, f"> {labels['t2_experience'].format(n=len(experience))}")
         for i, exp in enumerate(experience, 1):
             etbl = doc.add_table(rows=0, cols=2)
             etbl.style = "Table Grid"
-            _t2_kv(etbl, labels["t2_project_n"].format(i=i), exp.get("company") or "")
+            _t2_kv(etbl, labels["t2_project_n"].format(i=i), exp.get("company") or "",
+                   header=True, bold_label=True)
             period = _date_range(exp.get("start_date"), exp.get("end_date"))
             if period:
-                _t2_kv(etbl, labels["t2_period"], period)
+                _t2_kv(etbl, labels["t2_period"], period, header=True, bold_label=False)
             if exp.get("position"):
-                _t2_kv(etbl, labels["t2_pos"], exp["position"])
+                _t2_kv(etbl, labels["t2_pos"], exp["position"], header=True, bold_label=False)
             if exp.get("team_size"):
-                _t2_kv(etbl, labels["t2_teamsize"], str(exp["team_size"]))
+                _t2_kv(etbl, labels["t2_teamsize"], str(exp["team_size"]), header=True, bold_label=False)
             if exp.get("overview"):
-                _t2_kv(etbl, labels["t2_desc"], exp["overview"])
+                _t2_kv(etbl, labels["t2_desc"], exp["overview"], header=True, bold_label=False)
             tasks = exp.get("description") or []
             if tasks:
-                _t2_kv_multiline(etbl, labels["t2_tasks"], [f"•  {t}" for t in tasks])
+                _t2_kv_multiline(etbl, labels["t2_tasks"], [f"- {t}" for t in tasks], header=True)
             if exp.get("technologies"):
-                _t2_kv(etbl, labels["t2_tech_used"], exp["technologies"])
+                _t2_kv(etbl, labels["t2_tech_used"], exp["technologies"], header=True, bold_label=False)
             doc.add_paragraph()
 
     return doc
 
 
 @tool
-def generate_cv_word_file(cv_json: str, template_id: str = "1", language: str = "vi") -> str:
-    """Tạo file CV định dạng Word (.docx) từ dữ liệu CV dạng JSON, theo 1 trong 2 mẫu chuẩn.
+def generate_cv_word_file(file_id: str, template_id: str = "1", language: str = "vi") -> str:
+    """Tạo file CV định dạng Word (.docx) từ file_id của CV đã đọc bằng read_cv_file.
+
+    file_id: ID của file CV đã upload (từ thẻ [Attached file: '...', file_id=<id>]).
+             read_cv_file phải được gọi trước với cùng file_id này.
 
     template_id:
       "1" = Bản Lý Lịch Chuyên Môn (bảng gọn, kinh nghiệm dạng thời gian | nội dung).
@@ -476,9 +550,13 @@ def generate_cv_word_file(cv_json: str, template_id: str = "1", language: str = 
       "vi" = Tiêu đề và đề mục bằng tiếng Việt (mặc định).
       "en" = Tiêu đề và đề mục bằng tiếng Anh.
 
-    Dùng khi người dùng yêu cầu xuất CV ra Word/.docx."""
+    Dùng khi người dùng yêu cầu xuất CV ra Word/.docx. Có thể gọi lại nhiều lần với
+    cùng file_id để đổi mẫu hoặc ngôn ngữ mà không cần upload lại file."""
+    cached = _cv_json_store.get(file_id)
+    if not cached:
+        return f"Lỗi: Không tìm thấy dữ liệu CV cho file_id '{file_id}'. Hãy gọi read_cv_file trước."
     try:
-        cv_data = json.loads(cv_json)
+        cv_data = json.loads(cached)
     except json.JSONDecodeError as e:
         return f"Lỗi JSON không hợp lệ: {e}"
 
