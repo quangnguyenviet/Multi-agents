@@ -66,9 +66,6 @@ async def chat(
                         logger.info("[ROUTE /chat] Skill selected for query '%s': %s",
                                     query[:80], skill_used)
 
-        if file_id:
-            _upload_store.pop(file_id, None)
-
         conversation_repo.upsert(conversation_id, user_id, query)
 
         response_data: dict = {"response": result.get("agent_response", "")}
