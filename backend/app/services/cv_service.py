@@ -73,6 +73,22 @@ JSON Schema cần trả về:
 Văn bản CV:
 {cv_text}"""
 
+CV_TRANSLATION_PROMPT = """You are a professional resume translator.
+
+Translate the human-readable content in the CV JSON below into {target_language_name}.
+
+Rules:
+- Return pure JSON only. No markdown. No explanation.
+- Preserve the exact JSON structure, keys, array lengths, and null values.
+- Translate natural-language fields such as summary, overview, responsibilities, education text, certifications, and language levels.
+- Do not translate emails, phone numbers, URLs, LinkedIn handles, dates, or technical keywords unless they are ordinary words that should naturally appear in the target language.
+- Keep person names, company names, product names, and certificate names unchanged unless the original already includes an accepted translated form.
+- Keep skill taxonomy and tech stack grouping intact.
+
+Target language: {target_language_name}
+CV JSON:
+{cv_json}"""
+
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     try:
@@ -88,16 +104,27 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
         raise RuntimeError("Thu vien pdfplumber chua duoc cai. Chay: pip install pdfplumber")
 
 
+def _get_client() -> OpenAI:
+    return OpenAI(
+        api_key=settings.LLM_API_KEY,
+        base_url=settings.LLM_BASE_URL,
+    )
+
+
+def _parse_json_response(raw: str) -> dict:
+    raw = raw.strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+    return json.loads(raw)
+
+
 def extract_cv_data(pdf_bytes: bytes) -> dict:
     cv_text = extract_text_from_pdf(pdf_bytes)
     if not cv_text:
         raise ValueError("Khong the trich xuat van ban tu PDF. File co the la anh scan hoac bi bao ve.")
 
-    client = OpenAI(
-        api_key=settings.LLM_API_KEY,
-        base_url=settings.LLM_BASE_URL,
-    )
-
+    client = _get_client()
     prompt = CV_EXTRACTION_PROMPT.replace("{cv_text}", cv_text[:10000])
     response = client.chat.completions.create(
         model=settings.LLM_MODEL,
@@ -106,10 +133,26 @@ def extract_cv_data(pdf_bytes: bytes) -> dict:
         max_tokens=4000,
     )
 
-    raw = response.choices[0].message.content.strip()
+    return _parse_json_response(response.choices[0].message.content)
 
-    if raw.startswith("```"):
-        lines = raw.splitlines()
-        raw = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
 
-    return json.loads(raw)
+def translate_cv_data(cv_data: dict, target_language: str) -> dict:
+    lang = (target_language or "").strip().lower()
+    if lang not in {"en", "vi"}:
+        raise ValueError(f"Unsupported target language: {target_language}")
+    if lang == "vi":
+        return cv_data
+
+    client = _get_client()
+    target_language_name = "English" if lang == "en" else "Vietnamese"
+    prompt = CV_TRANSLATION_PROMPT.format(
+        target_language_name=target_language_name,
+        cv_json=json.dumps(cv_data, ensure_ascii=False),
+    )
+    response = client.chat.completions.create(
+        model=settings.LLM_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1,
+        max_tokens=4000,
+    )
+    return _parse_json_response(response.choices[0].message.content)

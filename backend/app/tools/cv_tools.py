@@ -11,11 +11,12 @@ from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from langchain_core.tools import tool
 
-from app.services.cv_service import extract_cv_data
+from app.services.cv_service import extract_cv_data, translate_cv_data
 from app.repositories.blob_store import make_blob_store
 from app.tools.file_tools import _upload_store
 
 _cv_json_store = make_blob_store("cv_json")
+_cv_translated_json_store = make_blob_store("cv_json_translated")
 _cv_docx_store = make_blob_store("cv_docx")
 
 
@@ -88,6 +89,26 @@ def _date_range(a, b) -> str:
     if not a and not b:
         return ""
     return f"{a} - {b}".strip(" -")
+
+
+def _load_cv_data_for_language(file_id: str, cached: str | bytes, language: str) -> dict:
+    cv_data = json.loads(cached)
+    lang_key = "en" if str(language).strip().lower() == "en" else "vi"
+    if lang_key == "vi":
+        return cv_data
+
+    translated_key = f"{file_id}:{lang_key}"
+    translated_cached = _cv_translated_json_store.get(translated_key)
+    if translated_cached:
+        return json.loads(translated_cached)
+
+    translated_data = translate_cv_data(cv_data, lang_key)
+    _cv_translated_json_store[translated_key] = json.dumps(
+        translated_data,
+        ensure_ascii=False,
+        indent=2,
+    )
+    return translated_data
 
 
 _LABELS = {
@@ -556,11 +577,11 @@ def generate_cv_word_file(file_id: str, template_id: str = "1", language: str = 
     if not cached:
         return f"Lỗi: Không tìm thấy dữ liệu CV cho file_id '{file_id}'. Hãy gọi read_cv_file trước."
     try:
-        cv_data = json.loads(cached)
-    except json.JSONDecodeError as e:
-        return f"Lỗi JSON không hợp lệ: {e}"
+        lang_key = "en" if str(language).strip().lower() == "en" else "vi"
+        cv_data = _load_cv_data_for_language(file_id, cached, lang_key)
+    except (json.JSONDecodeError, ValueError) as e:
+        return f"Lỗi xử lý dữ liệu CV: {e}"
 
-    lang_key = "en" if str(language).strip().lower() == "en" else "vi"
     labels = _LABELS[lang_key]
     builder = _build_docx_template2 if str(template_id).strip() == "2" else _build_docx_template1
     doc = builder(cv_data, labels)
